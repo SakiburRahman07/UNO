@@ -2,6 +2,10 @@
 # Docs: https://docs.railway.app/
 # Deploy: `railway up` (after `railway login` + `railway link`), or connect this
 # repo in the Railway dashboard (New Project > Deploy from GitHub repo).
+#
+# NOTE: do NOT set NODE_ENV=production in [env] — that would make `npm ci` skip
+# devDependencies during the build and break the Tailwind/TypeScript build.
+# Railway sets NODE_ENV=production automatically at runtime.
 
 [deploy]
 # Railway sets PORT automatically and injects it as an env var.
@@ -14,4 +18,4 @@ restartPolicyMaxRetries = 3
 buildCommand = "npm run build"
 
 [env]
-NODE_ENV = "production"
+PORT = "3000"

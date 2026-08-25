@@ -3,7 +3,7 @@
 # Deploy: `fly launch` (creates app + scales) then `fly deploy`.
 # The included Dockerfile is used automatically (Fly detects it).
 
-app = "uno-arena"
+app = "unokuet"
 primary_region = "iad"
 
 [build]
@@ -27,6 +27,5 @@ primary_region = "iad"
   cpus = 1
 
 [env]
-  NODE_ENV = "production"
   PORT = "3000"
   HOSTNAME = "0.0.0.0"

@@ -185,8 +185,8 @@ fly deploy
 **Docker** (any VPS / self-host):
 
 ```bash
-docker build -t uno-arena .
-docker run -p 3000:3000 uno-arena
+docker build -t unokuet .
+docker run -p 3000:3000 unokuet
 # → http://localhost:3000
 ```
 

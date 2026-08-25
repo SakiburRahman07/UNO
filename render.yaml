@@ -1,10 +1,14 @@
-# Render Blueprint — deploys UNO Arena as a long-running Web Service.
+# Render Blueprint — deploys unokuet as a long-running Web Service.
 # Docs: https://render.com/docs/blueprint-spec
-# Dashboard: create from this render.yaml (New > Blueprint)
+# Dashboard: New > Blueprint, point at this repo (reads render.yaml automatically).
+#
+# NOTE: do NOT set NODE_ENV=production here — that would make `npm ci` skip
+# devDependencies during the build and break the Tailwind/TypeScript build.
+# Render sets NODE_ENV=production automatically at runtime.
 
 services:
   - type: web
-    name: uno-arena
+    name: unokuet
     runtime: node
     plan: free
     region: oregon
@@ -13,7 +17,5 @@ services:
     healthCheckPath: /
     autoDeploy: true
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: PORT
         value: 3000
