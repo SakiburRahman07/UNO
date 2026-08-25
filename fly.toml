@@ -1,0 +1,32 @@
+# Fly.io config — single long-running Node VM.
+# Docs: https://fly.io/docs/
+# Deploy: `fly launch` (creates app + scales) then `fly deploy`.
+# The included Dockerfile is used automatically (Fly detects it).
+
+app = "uno-arena"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1   # keep 1 always-on so in-memory rooms persist
+
+[http_service.concurrency]
+  type = "requests"
+  hard_limit = 250
+  soft_limit = 200
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  HOSTNAME = "0.0.0.0"

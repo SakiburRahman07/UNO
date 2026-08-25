@@ -1,0 +1,17 @@
+# Railway config — long-running Node service.
+# Docs: https://docs.railway.app/
+# Deploy: `railway up` (after `railway login` + `railway link`), or connect this
+# repo in the Railway dashboard (New Project > Deploy from GitHub repo).
+
+[deploy]
+# Railway sets PORT automatically and injects it as an env var.
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[build]
+# Railway auto-detects Node and runs `npm install` + the build command below.
+buildCommand = "npm run build"
+
+[env]
+NODE_ENV = "production"

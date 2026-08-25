@@ -1,0 +1,19 @@
+# Render Blueprint — deploys UNO Arena as a long-running Web Service.
+# Docs: https://render.com/docs/blueprint-spec
+# Dashboard: create from this render.yaml (New > Blueprint)
+
+services:
+  - type: web
+    name: uno-arena
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --no-audit --no-fund && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000

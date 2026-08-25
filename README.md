@@ -137,6 +137,7 @@ UNO/
 ├─ types/uno.ts                # shared domain types + socket event maps
 ├─ scripts/                    # dev test harnesses (engine + socket e2e)
 ├─ Dockerfile  .dockerignore
+├─ render.yaml  railway.toml  fly.toml   # one-click deploy configs
 └─ README.md
 ```
 
@@ -145,15 +146,58 @@ UNO/
 ## Constraints & deployment
 
 - **In-memory only** — no database. Rooms and games exist only in the server process and **reset on restart** (by design).
-- **Single instance** — because state lives in memory, deploy as a **single process**. Do **not** deploy to serverless (e.g. Vercel functions) or scale horizontally; state would not be shared. Use a VPS / Render / Railway / Fly / Docker container.
+- **Single instance** — because state lives in memory, deploy as a **single long-running process**. Do **not** scale horizontally.
 
-### Docker
+### ⚠️ Do NOT deploy to Vercel
+
+This app uses a **custom Next.js server** (`server/index.ts`) that runs a **Socket.IO server in process memory**. Vercel runs Next.js as **serverless functions**, which:
+
+1. **Ignore your custom server entirely** — Vercel uses its own Next.js handler, so the Socket.IO server never starts. The client gets `WebSocket connection to 'wss://…/socket.io/…' failed`.
+2. Have **no persistent process** and **no shared memory** between invocations/instances, so in-memory rooms can't survive.
+
+This is an architecture constraint, not a bug. To fix it, deploy the whole app on a host that runs a long-lived Node process (below). The project is already built and tested for this.
+
+### Quick deploy (pick one)
+
+**Render** (free tier, zero config) — push this repo to GitHub, then in Render: *New → Blueprint*, point at this repo. It reads `render.yaml` automatically. Or:
+
+```bash
+# CLI
+npm i -g render-cli
+render deploy
+```
+
+**Railway** (free trial) — connect the repo in the Railway dashboard (*New Project → Deploy from GitHub repo*). It reads `railway.toml`. Or:
+
+```bash
+npm i -g @railway/cli
+railway login && railway link && railway up
+```
+
+**Fly.io** (free tier, always-on VM) — keeps rooms in memory; `min_machines_running = 1` so state persists:
+
+```bash
+npm i -g flyctl
+fly launch        # creates the app from fly.toml + Dockerfile
+fly deploy
+```
+
+**Docker** (any VPS / self-host):
 
 ```bash
 docker build -t uno-arena .
 docker run -p 3000:3000 uno-arena
 # → http://localhost:3000
 ```
+
+**Any Node host** (VPS, etc.):
+
+```bash
+npm ci && npm run build
+PORT=3000 NODE_ENV=production npm start
+```
+
+All of the above run `npm start` (`cross-env NODE_ENV=production tsx server/index.ts`), which serves Next.js + Socket.IO on a single port. No database or external service required.
 
 ---
 
