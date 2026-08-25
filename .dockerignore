@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+*.log
+server.log
+server.err.log
+npm-debug.log*
+.DS_Store
+Dockerfile
+.dockerignore
