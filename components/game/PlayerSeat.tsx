@@ -58,7 +58,7 @@ export function PlayerSeat({
 
       <div className="relative flex items-center justify-center">
         <CardBack size="sm" className="!w-8 !shadow-md" />
-        <span className="absolute -right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="absolute -right-3 top-1/2 -translate-y-1/2 rounded-full bg-overlay px-1.5 py-0.5 text-[10px] font-bold text-white">
           {player.handSize}
         </span>
       </div>

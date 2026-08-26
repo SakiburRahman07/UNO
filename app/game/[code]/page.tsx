@@ -207,7 +207,7 @@ export default function GamePage() {
 
   if (!state) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[radial-gradient(ellipse_at_top,#241047_0%,#0a0a12_60%)]">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-radial">
         <Loader2 className="h-8 w-8 animate-spin text-fuchsia-400" />
         <p className="text-sm text-muted-foreground">Loading the table…</p>
       </div>
@@ -219,8 +219,8 @@ export default function GamePage() {
 
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,#1a1240_0%,#0a0a12_55%)]" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_10%,rgba(6,182,212,0.12),transparent_40%),radial-gradient(circle_at_15%_85%,rgba(168,85,247,0.14),transparent_45%)]" />
+      <div className="absolute inset-0 -z-10 bg-radial" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
 
       {/* header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
@@ -303,7 +303,7 @@ export default function GamePage() {
               aria-label="Draw a card"
             >
               <CardBack size="lg" />
-              <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/80 text-[10px] font-bold text-white ring-2 ring-background">
+              <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-overlay text-[10px] font-bold text-white ring-2 ring-background">
                 {state.deckCount}
               </div>
               {state.drawStack > 0 && (

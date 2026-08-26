@@ -15,7 +15,11 @@ const ThemeContext = React.createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
     if (typeof window === "undefined") return "dark";
-    return window.localStorage.getItem("uno-theme") === "light" ? "light" : "dark";
+    const stored = window.localStorage.getItem("uno-theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia("(prefers-color-scheme: light)").matches
+      ? "light"
+      : "dark";
   });
 
   React.useEffect(() => {

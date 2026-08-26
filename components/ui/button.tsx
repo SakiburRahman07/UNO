@@ -19,7 +19,7 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25 hover:bg-destructive/90",
         neon: "bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 text-white shadow-lg shadow-purple-500/40 hover:shadow-purple-500/60 hover:brightness-110",
         glass:
-          "glass text-foreground hover:bg-white/10 border border-white/10",
+          "glass text-foreground hover:bg-surface-hover border border-border-subtle",
       },
       size: {
         default: "h-11 px-5 py-2",

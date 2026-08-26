@@ -26,12 +26,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a12",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a12" },
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 };
+
+const themeInitScript = `(function(){try{var t=localStorage.getItem('uno-theme');if(t==='light'){document.documentElement.classList.add('theme-light');}var m=window.matchMedia('(prefers-color-scheme: light)').matches;if(!t&&m){document.documentElement.classList.add('theme-light');}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -40,6 +45,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className={`${inter.variable} ${display.variable} antialiased`}>
         <ThemeProvider>
           {children}

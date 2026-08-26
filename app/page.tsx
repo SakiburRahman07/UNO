@@ -131,12 +131,12 @@ export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden">
       {/* animated gradient backdrop */}
-      <div className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_top,#2a1247_0%,#0a0a12_55%)]" />
+      <div className="absolute inset-0 -z-20 bg-radial" />
       <div className="absolute inset-0 -z-10">
         <ParticleField />
         <FloatingCards />
       </div>
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.18),transparent_40%),radial-gradient(circle_at_80%_60%,rgba(6,182,212,0.16),transparent_45%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
 
       {/* header */}
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
@@ -268,7 +268,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="relative z-10 border-t border-white/5 px-5 py-6 text-center text-xs text-muted-foreground">
+      <footer className="relative z-10 border-t border-border-subtle px-5 py-6 text-center text-xs text-muted-foreground">
         Built with Next.js · Socket.IO · In-memory rooms reset on server restart
       </footer>
 

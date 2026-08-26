@@ -62,7 +62,7 @@ function PlayerCard({
       {canKick && (
         <button
           onClick={onKick}
-          className="absolute right-2 top-2 rounded-full bg-black/40 p-1 text-muted-foreground hover:text-destructive"
+          className="absolute right-2 top-2 rounded-full bg-overlay p-1 text-muted-foreground hover:text-destructive"
           aria-label="Remove bot"
         >
           <X className="h-3.5 w-3.5" />
@@ -232,8 +232,8 @@ export default function LobbyPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,#241047_0%,#0a0a12_60%)]" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_20%,rgba(6,182,212,0.14),transparent_45%),radial-gradient(circle_at_15%_75%,rgba(168,85,247,0.16),transparent_45%)]" />
+      <div className="absolute inset-0 -z-10 bg-radial" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
 
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
         <Button variant="glass" size="icon" onClick={handleLeave} aria-label="Back">
@@ -306,7 +306,7 @@ export default function LobbyPage() {
               <button
                 onClick={handleAddBot}
                 disabled={addBotBusy}
-                className="glass flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/15 text-muted-foreground transition-colors hover:border-fuchsia-500/50 hover:text-fuchsia-300 disabled:opacity-50"
+                className="glass flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border-subtle text-muted-foreground transition-colors hover:border-fuchsia-500/50 hover:text-fuchsia-300 disabled:opacity-50"
               >
                 {addBotBusy ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

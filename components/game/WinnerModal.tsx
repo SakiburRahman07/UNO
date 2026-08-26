@@ -62,7 +62,7 @@ export function WinnerModal({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4 backdrop-blur-md"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
@@ -93,7 +93,7 @@ export function WinnerModal({
               key={r.playerId}
               className={cn(
                 "flex items-center gap-3 rounded-2xl px-3 py-2",
-                r.isWinner ? "bg-amber-500/15 ring-1 ring-amber-500/40" : "bg-white/5",
+                r.isWinner ? "bg-amber-500/15 ring-1 ring-amber-500/40" : "bg-surface-subtle",
               )}
             >
               <span className="w-6 text-center font-display text-sm font-bold text-muted-foreground">
@@ -129,7 +129,7 @@ export function WinnerModal({
               Play again
             </Button>
           ) : (
-            <div className="flex-1 rounded-lg bg-white/5 py-2 text-center text-xs text-muted-foreground">
+            <div className="flex-1 rounded-lg bg-surface-subtle py-2 text-center text-xs text-muted-foreground">
               Waiting for host to restart…
             </div>
           )}
