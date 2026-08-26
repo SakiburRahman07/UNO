@@ -22,6 +22,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UnoCard } from "@/components/cards/UnoCard";
 import { CardBack } from "@/components/cards/CardBack";
 import { PlayerSeat } from "@/components/game/PlayerSeat";
@@ -171,7 +179,9 @@ export default function GamePage() {
   const someoneVulnerable = (state?.players ?? []).some(
     (p) => p.id !== myId && p.handSize === 1 && !p.saidUno,
   );
-  const showUno = !!me && ((me.handSize === 1 && !me.saidUno) || someoneVulnerable);
+  const needSelfCall = !!me && me.handSize === 1 && !me.saidUno;
+  const showUno = needSelfCall || someoneVulnerable;
+  const unoLabel = needSelfCall ? "Call UNO!" : "Catch them!";
   const canDraw = isMyTurn && !state?.pendingColorPick;
   const canPass =
     isMyTurn && !state?.pendingColorPick && !!state?.hasDrawnThisTurn && state.drawStack === 0;
@@ -237,6 +247,8 @@ export default function GamePage() {
     router.replace(NAV_ROUTES.home);
   };
 
+  const [confirmLeave, setConfirmLeave] = React.useState(false);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code.toUpperCase());
@@ -270,7 +282,7 @@ export default function GamePage() {
       {/* header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
-          <Button variant="glass" size="icon" onClick={handleLeave} aria-label="Leave">
+          <Button variant="glass" size="icon" onClick={() => setConfirmLeave(true)} aria-label="Leave">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <button
@@ -350,9 +362,13 @@ export default function GamePage() {
                   </span>
                   {currentName} is thinking…
                 </p>
+              ) : isMyTurn ? (
+                <p className="text-base font-bold text-fuchsia-300 neon-text">
+                  Your turn
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {state.lastEvent || (isMyTurn ? "Your turn" : `${currentName ?? ""}'s turn`)}
+                  {state.lastEvent || `${currentName ?? ""}'s turn`}
                 </p>
               )}
             </motion.div>
@@ -368,8 +384,12 @@ export default function GamePage() {
               whileTap={canDraw ? { scale: 0.96 } : {}}
               onClick={handleDraw}
               disabled={!canDraw}
-              className={cn("relative transition-opacity", !canDraw && "cursor-not-allowed opacity-70")}
-              aria-label="Draw a card"
+              className={cn(
+                "relative transition-opacity",
+                !canDraw && "cursor-not-allowed opacity-70",
+                isMyTurn && state.drawStack > 0 && "rounded-2xl ring-4 ring-red-500/70 ring-offset-2 ring-offset-background",
+              )}
+              aria-label={isMyTurn && state.drawStack > 0 ? `Draw ${state.drawStack} penalty cards` : "Draw a card"}
             >
               <CardBack size="lg" />
               <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-overlay text-[10px] font-bold text-white ring-2 ring-background">
@@ -386,7 +406,8 @@ export default function GamePage() {
               )}
             </motion.button>
             <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-              <Layers className="h-3 w-3" /> Draw
+              <Layers className="h-3 w-3" />
+              {isMyTurn && state.drawStack > 0 ? "Must draw" : "Draw"}
             </span>
           </div>
 
@@ -435,7 +456,7 @@ export default function GamePage() {
       <section className="relative mx-auto w-full max-w-6xl px-4 pb-4">
         {/* uno button */}
         <div className="pointer-events-none absolute inset-x-0 -top-4 z-20 flex justify-center">
-          {showUno && <UnoButton onClick={handleUno} />}
+          {showUno && <UnoButton onClick={handleUno} label={unoLabel} />}
         </div>
 
         {/* my hand */}
@@ -494,6 +515,24 @@ export default function GamePage() {
 
       {/* how to play */}
       <HowToPlay open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* leave confirmation */}
+      <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Leave the game?</DialogTitle>
+            <DialogDescription>
+              Your seat will be saved — you can rejoin with the room code. Bots will take over your turn while you are away.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmLeave(false)}>Stay</Button>
+            <Button variant="destructive" onClick={() => { setConfirmLeave(false); handleLeave(); }}>
+              Leave
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* winner modal */}
       {gameEnd && (
