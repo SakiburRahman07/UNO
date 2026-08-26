@@ -52,6 +52,20 @@ function ensureConnected(socket: import("@/lib/socket").AppSocket): Promise<void
   });
 }
 
+/** Wrap emitWithAck with a timeout so buttons never hang forever. */
+function emitWithTimeout<T>(socket: import("@/lib/socket").AppSocket, event: string, data: unknown, ms = 8000): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    socket.emitWithAck(event, data as never).then((res: T) => {
+      clearTimeout(timer);
+      resolve(res);
+    }).catch(() => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+  });
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
@@ -86,7 +100,11 @@ export default function HomePage() {
     play("click");
     await ensureConnected(socket);
     try {
-      const res = await socket.emitWithAck("room:create", { name: n });
+      const res = await emitWithTimeout(socket, "room:create", { name: n });
+      if (!res) {
+        toast.error("Connection timeout. Please try again.");
+        return;
+      }
       if (res.ok) {
         saveName(n);
         saveSession({ code: res.data.code, playerId: res.data.playerId, sessionToken: res.data.sessionToken });
@@ -118,7 +136,11 @@ export default function HomePage() {
     play("click");
     await ensureConnected(socket);
     try {
-      const res = await socket.emitWithAck("room:join", { code, name: n });
+      const res = await emitWithTimeout(socket, "room:join", { code, name: n });
+      if (!res) {
+        toast.error("Connection timeout. Please try again.");
+        return;
+      }
       if (res.ok) {
         saveName(n);
         saveSession({ code: res.data.code, playerId: res.data.playerId, sessionToken: res.data.sessionToken });

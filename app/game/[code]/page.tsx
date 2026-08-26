@@ -425,7 +425,7 @@ export default function GamePage() {
 
           {/* discard pile */}
           <div className="flex flex-col items-center gap-2">
-            <div className={cn("rounded-2xl p-1 ring-4", COLOR_RING[state.activeColor])}>
+            <div className={cn("rounded-2xl p-1 ring-4", COLOR_RING[state.pendingColorPick ? "wild" : state.activeColor])}>
               <motion.div
                 key={state.topCard?.id}
                 initial={{ scale: 0.6, rotate: -12, opacity: 0 }}
@@ -439,7 +439,7 @@ export default function GamePage() {
               <RefreshCw
                 className={cn("h-3 w-3 transition-transform", state.direction === -1 && "scale-x-[-1]")}
               />
-              {state.activeColor}
+              {state.pendingColorPick ? "choosing…" : state.activeColor}
             </span>
           </div>
         </div>
@@ -472,39 +472,41 @@ export default function GamePage() {
         </div>
 
         {/* my hand */}
-        <div className="flex items-end justify-center gap-1.5 overflow-x-auto scrollbar-hide pb-2 pt-16 sm:gap-2">
-          <AnimatePresence mode="popLayout">
-            {state.myHand.map((card, i) => {
-              const playable = playableIds.has(card.id);
-              const center = (state.myHand.length - 1) / 2;
-              const rot = (i - center) * 3;
-              return (
-                <motion.div
-                  key={card.id}
-                  layout
-                  initial={{ opacity: 0, y: 60, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1, rotate: rot }}
-                  exit={{ opacity: 0, y: 40, scale: 0.7 }}
-                  transition={{ type: "spring", stiffness: 280, damping: 24 }}
-                  whileHover={playable ? { y: -16, scale: 1.06, rotate: 0, zIndex: 30 } : {}}
-                  whileTap={playable ? { scale: 0.96 } : {}}
-                  onClick={() => playable && handlePlay(card.id)}
-                  className={cn(
-                    "shrink-0",
-                    playable ? "cursor-pointer" : "cursor-default",
-                  )}
-                  style={{ rotate: rot }}
-                >
-                  <UnoCard
-                    card={card}
-                    size="md"
-                    highlight={playable}
-                    dim={!playable && isMyTurn && !state.pendingColorPick}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+        <div className="overflow-x-auto scrollbar-hide pb-2 pt-16">
+          <div className="mx-auto flex w-max min-w-full items-end justify-center gap-1.5 sm:gap-2">
+            <AnimatePresence mode="popLayout">
+              {state.myHand.map((card, i) => {
+                const playable = playableIds.has(card.id);
+                const center = (state.myHand.length - 1) / 2;
+                const rot = (i - center) * 3;
+                return (
+                  <motion.div
+                    key={card.id}
+                    layout
+                    initial={{ opacity: 0, y: 60, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1, rotate: rot }}
+                    exit={{ opacity: 0, y: 40, scale: 0.7 }}
+                    transition={{ type: "spring", stiffness: 280, damping: 24 }}
+                    whileHover={playable ? { y: -16, scale: 1.06, rotate: 0, zIndex: 30 } : {}}
+                    whileTap={playable ? { scale: 0.96 } : {}}
+                    onClick={() => playable && handlePlay(card.id)}
+                    className={cn(
+                      "shrink-0",
+                      playable ? "cursor-pointer" : "cursor-default",
+                    )}
+                    style={{ rotate: rot }}
+                  >
+                    <UnoCard
+                      card={card}
+                      size="md"
+                      highlight={playable}
+                      dim={!playable && isMyTurn && !state.pendingColorPick}
+                    />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* my info bar */}

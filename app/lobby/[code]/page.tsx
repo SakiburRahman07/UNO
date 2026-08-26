@@ -246,6 +246,16 @@ export default function LobbyPage() {
     socket?.emit("room:kick", { playerId });
   };
 
+  // M10: show a loading state until the first room:update arrives.
+  if (!room) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-radial">
+        <Loader2 className="h-8 w-8 animate-spin text-fuchsia-400" />
+        <p className="text-sm text-muted-foreground">Loading lobby…</p>
+      </div>
+    );
+  }
+
   return (
     <main className="relative min-h-dvh overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-radial" />
