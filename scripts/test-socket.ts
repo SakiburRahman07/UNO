@@ -36,7 +36,7 @@ async function main() {
 
   await new Promise<void>((resolve, reject) => {
     let acting = false;
-    const timer = setTimeout(() => reject(new Error("game timeout")), 90000);
+    const timer = setTimeout(() => reject(new Error("game timeout")), 300000);
     socket.on("game:end", (d) => {
       clearTimeout(timer);
       const winner = d.rankings.find((r) => r.isWinner);

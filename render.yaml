@@ -2,9 +2,10 @@
 # Docs: https://render.com/docs/blueprint-spec
 # Dashboard: New > Blueprint, point at this repo (reads render.yaml automatically).
 #
-# NOTE: do NOT set NODE_ENV=production here — that would make `npm ci` skip
-# devDependencies during the build and break the Tailwind/TypeScript build.
-# Render sets NODE_ENV=production automatically at runtime.
+# NOTE: do NOT set NODE_ENV or PORT here.
+# - NODE_ENV=production during build would skip devDependencies (breaks build).
+# - PORT is auto-injected by Render; overriding it can cause a 502.
+# Render sets both automatically at runtime.
 
 services:
   - type: web
@@ -14,8 +15,5 @@ services:
     region: oregon
     buildCommand: npm ci --no-audit --no-fund && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     autoDeploy: true
-    envVars:
-      - key: PORT
-        value: 3000
