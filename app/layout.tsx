@@ -32,8 +32,6 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 const themeInitScript = `(function(){try{var t=localStorage.getItem('uno-theme');if(t==='light'){document.documentElement.classList.add('theme-light');}var m=window.matchMedia('(prefers-color-scheme: light)').matches;if(!t&&m){document.documentElement.classList.add('theme-light');}}catch(e){}})();`;

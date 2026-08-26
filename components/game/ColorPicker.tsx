@@ -43,7 +43,7 @@ export function ColorPicker({
                   whileHover={{ scale: 1.06, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onChoose(color)}
-                  className="flex h-20 w-28 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-lg transition-shadow hover:shadow-xl"
+                  className="flex h-18 w-24 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-lg transition-shadow hover:shadow-xl sm:h-20 sm:w-28"
                   style={{ background: bg }}
                 >
                   {label}

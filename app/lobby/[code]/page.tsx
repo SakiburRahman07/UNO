@@ -231,7 +231,7 @@ export default function LobbyPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-dvh overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-radial" />
       <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
 

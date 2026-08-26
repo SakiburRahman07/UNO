@@ -207,7 +207,7 @@ export default function GamePage() {
 
   if (!state) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-radial">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-radial">
         <Loader2 className="h-8 w-8 animate-spin text-fuchsia-400" />
         <p className="text-sm text-muted-foreground">Loading the table…</p>
       </div>
@@ -218,7 +218,7 @@ export default function GamePage() {
   const isHost = me?.isHost ?? false;
 
   return (
-    <main className="relative flex min-h-screen flex-col overflow-hidden">
+    <main className="relative flex min-h-dvh flex-col overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-radial" />
       <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
 

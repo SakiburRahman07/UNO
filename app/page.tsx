@@ -129,7 +129,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-dvh overflow-hidden">
       {/* animated gradient backdrop */}
       <div className="absolute inset-0 -z-20 bg-radial" />
       <div className="absolute inset-0 -z-10">
@@ -235,7 +235,7 @@ export default function HomePage() {
           ].map(({ icon: Icon, label }) => (
             <div key={label} className="glass flex flex-col items-center gap-1.5 rounded-2xl px-3 py-4">
               <Icon className="h-5 w-5 text-fuchsia-400" />
-              <span className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</span>
+              <span className="text-[10px] font-medium text-muted-foreground sm:text-sm">{label}</span>
             </div>
           ))}
         </motion.div>

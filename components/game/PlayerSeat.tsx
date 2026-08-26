@@ -22,7 +22,7 @@ export function PlayerSeat({
       animate={isCurrent ? { scale: 1.04 } : { scale: 1 }}
       transition={{ type: "spring", stiffness: 260, damping: 22 }}
       className={cn(
-        "glass relative flex w-28 flex-col items-center gap-1.5 rounded-2xl p-3 text-center sm:w-32",
+        "glass relative flex w-24 flex-col items-center gap-1.5 rounded-2xl p-3 text-center sm:w-28",
         isCurrent && "ring-2 ring-fuchsia-500/70 shadow-lg shadow-fuchsia-500/30",
       )}
     >
