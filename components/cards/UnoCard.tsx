@@ -23,7 +23,7 @@ const COLOR_INK: Record<CardColor, string> = {
 
 const SIZES: Record<"sm" | "md" | "lg", string> = {
   sm: "w-11 sm:w-12",
-  md: "w-16 sm:w-[4.5rem]",
+  md: "w-14 sm:w-16",
   lg: "w-24 sm:w-28",
 };
 

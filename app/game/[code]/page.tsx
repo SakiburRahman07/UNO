@@ -218,9 +218,9 @@ export default function GamePage() {
   const isHost = me?.isHost ?? false;
 
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-radial" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-glow" />
+    <main className="relative flex min-h-dvh flex-col overflow-x-hidden">
+      <div className="fixed inset-0 -z-10 bg-radial" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-radial-glow" />
 
       {/* header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
@@ -365,7 +365,7 @@ export default function GamePage() {
         </div>
 
         {/* my hand */}
-        <div className="flex items-end justify-center gap-1.5 overflow-x-auto scrollbar-hide pb-2 pt-10 sm:gap-2">
+        <div className="flex items-end justify-center gap-1.5 overflow-x-auto scrollbar-hide pb-2 pt-16 sm:gap-2">
           <AnimatePresence mode="popLayout">
             {state.myHand.map((card, i) => {
               const playable = playableIds.has(card.id);
@@ -379,7 +379,7 @@ export default function GamePage() {
                   animate={{ opacity: 1, y: 0, scale: 1, rotate: rot }}
                   exit={{ opacity: 0, y: 40, scale: 0.7 }}
                   transition={{ type: "spring", stiffness: 280, damping: 24 }}
-                  whileHover={playable ? { y: -22, scale: 1.08, rotate: 0, zIndex: 30 } : {}}
+                  whileHover={playable ? { y: -16, scale: 1.06, rotate: 0, zIndex: 30 } : {}}
                   whileTap={playable ? { scale: 0.96 } : {}}
                   onClick={() => playable && handlePlay(card.id)}
                   className={cn(
