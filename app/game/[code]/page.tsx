@@ -630,8 +630,10 @@ export default function GamePage() {
         myPlayerId={myId}
         muted={audioCall.muted}
         speaking={audioCall.speaking}
+        levels={audioCall.levels}
+        startedAt={audioCall.startedAt}
+        connecting={callJoining}
         error={audioCall.error}
-        joining={callJoining}
         onToggleMute={handleCallMute}
         onLeave={handleCallLeave}
       />

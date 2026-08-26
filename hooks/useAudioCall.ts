@@ -21,6 +21,10 @@ export interface AudioCallApi {
   muted: boolean;
   participants: CallParticipant[];
   speaking: Record<string, boolean>;
+  /** Smoothed audio level (0..1) per participant, for live bars. */
+  levels: Record<string, number>;
+  /** Timestamp (ms) when the local user joined the call, or null. */
+  startedAt: number | null;
   error: string | null;
   joinCall: () => Promise<void>;
   leaveCall: () => void;
@@ -40,6 +44,8 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
   const [muted, setMuted] = useState(false);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [speaking, setSpeaking] = useState<Record<string, boolean>>({});
+  const [levels, setLevels] = useState<Record<string, number>>({});
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -49,6 +55,7 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number>(0);
   const speakingRef = useRef<Record<string, boolean>>({});
+  const levelsRef = useRef<Record<string, number>>({});
 
   const mutedRef = useRef(false);
   const inCallRef = useRef(false);
@@ -274,14 +281,17 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
     };
   }, [socket, handleState, handleOffer, handleAnswer, handleIce]);
 
-  // ---- Speaking detection rAF loop (runs only while in a call) ----
+  // ---- Speaking + level detection rAF loop (runs only while in a call) ----
   useEffect(() => {
     if (!inCall) return;
     const loop = () => {
       const now = performance.now();
       const prev = speakingRef.current;
-      const next: Record<string, boolean> = {};
-      let changed = false;
+      const nextSpeaking: Record<string, boolean> = {};
+      const nextLevels: Record<string, number> = {};
+      let speakChanged = false;
+      let levelChanged = false;
+      const prevLevels = levelsRef.current;
       for (const [peerId, ctx] of analysersRef.current) {
         const data = new Uint8Array(ctx.analyser.frequencyBinCount);
         ctx.analyser.getByteTimeDomainData(data);
@@ -294,12 +304,26 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
         const active = rms > SPEAKING_THRESHOLD;
         if (active) ctx.lastActive = now;
         const still = active || now - ctx.lastActive < SPEAKING_HOLD_MS;
-        next[peerId] = still;
-        if (still !== (prev[peerId] ?? false)) changed = true;
+        nextSpeaking[peerId] = still;
+        if (still !== (prev[peerId] ?? false)) speakChanged = true;
+
+        // Smooth the level toward the current RMS for organic bar motion.
+        const target = Math.min(1, rms * 2.5);
+        const prevLevel = prevLevels[peerId] ?? 0;
+        const smoothed = prevLevel + (target - prevLevel) * 0.35;
+        nextLevels[peerId] = smoothed;
+        if (Math.abs(smoothed - prevLevel) > 0.01) levelChanged = true;
       }
-      if (changed) {
-        speakingRef.current = next;
-        setSpeaking(next);
+      if (speakChanged) {
+        speakingRef.current = nextSpeaking;
+        setSpeaking(nextSpeaking);
+      }
+      if (levelChanged) {
+        levelsRef.current = nextLevels;
+        setLevels(nextLevels);
+      } else {
+        // Keep ref in sync even when deltas are tiny.
+        levelsRef.current = nextLevels;
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -326,6 +350,9 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
       }
       setSpeaking({});
       speakingRef.current = {};
+      setLevels({});
+      levelsRef.current = {};
+      setStartedAt(null);
     };
   }, [inCall, teardownPeers, removeAnalyser]);
 
@@ -377,6 +404,7 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
 
       inCallRef.current = true;
       setInCall(true);
+      setStartedAt(Date.now());
       socket?.emit("call:join", () => {});
     } catch (e) {
       const err = e as { name?: string; message?: string };
@@ -402,6 +430,7 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
     setParticipants([]);
     setMuted(false);
     mutedRef.current = false;
+    setStartedAt(null);
   }, [socket]);
 
   const toggleMute = useCallback(() => {
@@ -419,6 +448,8 @@ export function useAudioCall(socket: AppSocket | null, myPlayerId: string): Audi
     muted,
     participants,
     speaking,
+    levels,
+    startedAt,
     error,
     joinCall,
     leaveCall,
