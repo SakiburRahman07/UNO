@@ -18,6 +18,7 @@ import {
   Layers,
   Gamepad2,
   Loader2,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,14 @@ import { PlayerSeat } from "@/components/game/PlayerSeat";
 import { ColorPicker } from "@/components/game/ColorPicker";
 import { WinnerModal } from "@/components/game/WinnerModal";
 import { UnoButton } from "@/components/game/UnoButton";
+import { HowToPlay } from "@/components/game/HowToPlay";
 import { useSocket } from "@/hooks/useSocket";
 import { useGameState } from "@/hooks/useGameState";
 import { useSound } from "@/hooks/useSound";
 import { useTheme } from "@/components/theme-provider";
 import { getPlayableCards } from "@/server/unoRules";
 import { NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
+import { getStoredSession, clearSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
 import type { CardColor } from "@/types/uno";
@@ -50,7 +53,7 @@ export default function GamePage() {
   const code = (params?.code as string) ?? "";
   const router = useRouter();
   const { socket, isConnected } = useSocket();
-  const { state, gameEnd } = useGameState(socket);
+  const { state, gameEnd, unoCaller } = useGameState(socket);
   const { play, muted, toggleMute } = useSound();
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = React.useState(false);
@@ -80,6 +83,17 @@ export default function GamePage() {
       });
       if (cancelled) return;
       try {
+        // Try token-based reconnection first (C7/H8 fix).
+        const stored = getStoredSession();
+        if (stored && stored.code === code.toUpperCase() && stored.sessionToken) {
+          const reconRes = await socket.emitWithAck("room:reconnect", {
+            code,
+            sessionToken: stored.sessionToken,
+          });
+          if (reconRes.ok) return; // success
+          clearSession(); // token invalid, fall through to name join
+        }
+        // Fallback: name-based join.
         const res = await socket.emitWithAck("room:join", { code, name });
         if (!res.ok) {
           toast.error(res.error);
@@ -97,9 +111,15 @@ export default function GamePage() {
     if (!socket) return;
     const t = setTimeout(() => {
       if (!state) router.replace(NAV_ROUTES.lobby(code));
-    }, 2500);
+    }, 5000);
     return () => clearTimeout(t);
   }, [socket, state, code, router]);
+
+  // H1: auto-show onboarding for first-time users (lazy initial state).
+  const [showHelp, setShowHelp] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(STORAGE_KEYS.hasSeenOnboarding) !== "1";
+  });
 
   // Sound cues on transitions.
   const prevTurn = React.useRef(false);
@@ -110,6 +130,28 @@ export default function GamePage() {
   React.useEffect(() => {
     if (gameEnd) play("win");
   }, [gameEnd, play]);
+
+  // M5: play sound when an opponent calls UNO.
+  React.useEffect(() => {
+    if (unoCaller && unoCaller !== myId) play("uno");
+  }, [unoCaller, myId, play]);
+
+  // H3: show toast when a player forgot UNO (penalty fired).
+  const prevEventAt = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!state?.lastEvent || !state.lastEventAt) return;
+    if (prevEventAt.current === state.lastEventAt) return;
+    prevEventAt.current = state.lastEventAt;
+    if (state.lastEvent.includes("forgot to call UNO")) {
+      const isMe = state.lastEvent.includes(me?.name ?? "\x00");
+      if (isMe) {
+        toast.error("You forgot to call UNO! Tap the UNO button before playing your last card. +2 penalty cards.");
+      } else {
+        toast.info(state.lastEvent);
+      }
+      play("error");
+    }
+  }, [state?.lastEvent, state?.lastEventAt, state, me?.name, play]);
 
   // Playable card ids (client-side highlight).
   const playableIds = React.useMemo(() => {
@@ -191,6 +233,7 @@ export default function GamePage() {
 
   const handleLeave = () => {
     socket?.emit("room:leave");
+    clearSession();
     router.replace(NAV_ROUTES.home);
   };
 
@@ -214,7 +257,9 @@ export default function GamePage() {
     );
   }
 
-  const currentName = state.players[state.turn]?.name;
+  const currentPlayer = state.players[state.turn];
+  const currentName = currentPlayer?.name;
+  const isBotTurn = !!currentPlayer?.isBot && state.phase === "playing";
   const isHost = me?.isHost ?? false;
 
   return (
@@ -246,6 +291,9 @@ export default function GamePage() {
           </Button>
           <Button variant="glass" size="icon" onClick={() => { toggleTheme(); play("click"); }}>
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          <Button variant="glass" size="icon" onClick={() => { setShowHelp(true); play("click"); }} aria-label="How to play">
+            <HelpCircle className="h-4 w-4" />
           </Button>
         </div>
       </header>
@@ -280,6 +328,27 @@ export default function GamePage() {
               {state.pendingColorPick && state.pendingColorPick !== myId ? (
                 <p className="text-sm font-medium text-fuchsia-300">
                   {state.players.find((p) => p.id === state.pendingColorPick)?.name} is choosing a color…
+                </p>
+              ) : isBotTurn ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="flex gap-1">
+                    <motion.span
+                      className="h-1.5 w-1.5 rounded-full bg-fuchsia-400"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                    />
+                    <motion.span
+                      className="h-1.5 w-1.5 rounded-full bg-fuchsia-400"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                    />
+                    <motion.span
+                      className="h-1.5 w-1.5 rounded-full bg-fuchsia-400"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                    />
+                  </span>
+                  {currentName} is thinking…
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -343,16 +412,21 @@ export default function GamePage() {
         </div>
 
         {/* penalty / status badges */}
-        <div className="flex h-7 items-center gap-2">
-          {state.drawStack > 0 && (
+        <div className="flex min-h-[2.5rem] flex-wrap items-center justify-center gap-2">
+          {state.drawStack > 0 && isMyTurn && (
             <Badge variant="destructive">
-              Draw {state.drawStack} or stack
+              {state.topCard.value === "wild4" ? "Stack a +4" : "Stack a +2"} or draw {state.drawStack}
             </Badge>
           )}
           {canPass && (
-            <Button variant="glass" size="sm" onClick={handlePass}>
-              Pass turn
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="glass" size="sm" onClick={handlePass}>
+                Pass turn
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                Play the highlighted card or pass
+              </span>
+            </div>
           )}
         </div>
       </section>
@@ -417,6 +491,9 @@ export default function GamePage() {
 
       {/* color picker */}
       <ColorPicker open={pendingColor} onChoose={handleChooseColor} />
+
+      {/* how to play */}
+      <HowToPlay open={showHelp} onClose={() => setShowHelp(false)} />
 
       {/* winner modal */}
       {gameEnd && (

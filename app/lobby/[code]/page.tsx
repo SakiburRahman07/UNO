@@ -29,6 +29,7 @@ import { useSound } from "@/hooks/useSound";
 import { useTheme } from "@/components/theme-provider";
 import { avatarGradient, cn, initials } from "@/lib/utils";
 import { MIN_PLAYERS, NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
+import { getStoredSession, clearSession } from "@/lib/session";
 import { toast } from "@/components/ui/toaster";
 import type { PublicPlayer } from "@/types/uno";
 
@@ -144,6 +145,17 @@ export default function LobbyPage() {
       });
       if (cancelled) return;
       try {
+        // Try token-based reconnection first (C7/H8 fix).
+        const stored = getStoredSession();
+        if (stored && stored.code === code.toUpperCase() && stored.sessionToken) {
+          const reconRes = await socket.emitWithAck("room:reconnect", {
+            code,
+            sessionToken: stored.sessionToken,
+          });
+          if (reconRes.ok) return; // success
+          clearSession(); // token invalid, fall through to name join
+        }
+        // Fallback: name-based join.
         const res = await socket.emitWithAck("room:join", { code, name });
         if (!res.ok) {
           toast.error(res.error);
@@ -218,6 +230,7 @@ export default function LobbyPage() {
 
   const handleLeave = () => {
     socket?.emit("room:leave");
+    clearSession();
     router.replace(NAV_ROUTES.home);
   };
 
@@ -346,6 +359,12 @@ export default function LobbyPage() {
           )}
           {!canStart && isHost && (
             <span className="text-sm text-muted-foreground">{startReason}</span>
+          )}
+          {!isHost && me?.ready && (
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Waiting for the host to start the game…
+            </span>
           )}
           <Button variant="ghost" onClick={handleLeave}>
             <LogOut className="h-4 w-4" />

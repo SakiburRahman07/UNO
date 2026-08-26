@@ -9,14 +9,16 @@ import {
   callUno,
   chooseColor,
   drawCards,
+  endGameIfAllAway,
   passTurn,
   performAutoMove,
   performBotMove,
   playCard,
+  resolvePendingColorPick,
   startGame,
   toPublicGameState,
 } from "@/server/gameEngine";
-import { BOT_TURN_DELAY_MS } from "@/lib/constants";
+import { BOT_TURN_DELAY_MS, RECONNECT_GRACE_MS } from "@/lib/constants";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -42,12 +44,50 @@ export function registerSocketHandlers(io: IO): void {
     }
   }
 
+  /** Emit game state OR room update depending on phase (C2 fix — finished games too). */
+  function emitCurrentState(code: string): void {
+    const room = rooms.getRoom(code);
+    if (!room) return;
+    if (room.state && room.state.phase !== "idle") {
+      emitGameState(code);
+    }
+    emitRoomUpdate(code);
+  }
+
   /** Determine whether the current player needs automatic action and schedule it. */
   function scheduleAutoIfNeeded(code: string): void {
     const room = rooms.getRoom(code);
     if (!room?.state) return;
     const state = room.state;
-    if (state.phase !== "playing" || state.pendingColorPick) return;
+    if (state.phase !== "playing") return;
+
+    // C6 fix: if the pending color picker is disconnected, auto-resolve.
+    if (state.pendingColorPick) {
+      const picker = state.players.find((p) => p.id === state.pendingColorPick);
+      if (picker && !picker.connected && !picker.isBot) {
+        resolvePendingColorPick(state);
+        emitGameState(code);
+        emitRoomUpdate(code);
+        // Continue scheduling for the next turn.
+      } else {
+        return;
+      }
+    }
+
+    // C5 fix: if no connected humans remain, end the game.
+    const connectedHumans = rooms.connectedHumansCount(room);
+    if (connectedHumans === 0) {
+      if (endGameIfAllAway(state, connectedHumans)) {
+        io.to(code).emit("game:end", {
+          winnerId: state.winnerId!,
+          rankings: state.rankings,
+        });
+        emitGameState(code);
+        emitRoomUpdate(code);
+      }
+      return;
+    }
+
     const current = state.players[state.turn];
     if (!current) return;
 
@@ -60,7 +100,18 @@ export function registerSocketHandlers(io: IO): void {
       botTimers.delete(code);
       const r = rooms.getRoom(code);
       if (!r?.state || r.state.phase !== "playing") return;
-      if (r.state.pendingColorPick) return;
+      const st = r.state;
+      if (st.pendingColorPick) {
+        // Check if picker is away and resolve.
+        const picker = st.players.find((p) => p.id === st.pendingColorPick);
+        if (picker && !picker.connected && !picker.isBot) {
+          resolvePendingColorPick(r.state);
+          emitGameState(code);
+          emitRoomUpdate(code);
+          scheduleAutoIfNeeded(code);
+        }
+        return;
+      }
       const cur = r.state.players[r.state.turn];
       if (!cur) return;
 
@@ -98,10 +149,10 @@ export function registerSocketHandlers(io: IO): void {
       try {
         const name = data.name?.trim();
         if (!name) return ack({ ok: false, error: "Please enter a name" });
-        const { code, playerId } = rooms.createRoom(name, socket.id);
+        const { code, playerId, sessionToken } = rooms.createRoom(name, socket.id);
         socket.join(code);
-        ack({ ok: true, data: { code, playerId } });
-        io.to(code).emit("room:created", { code, playerId });
+        ack({ ok: true, data: { code, playerId, sessionToken } });
+        io.to(code).emit("room:created", { code, playerId, sessionToken });
         emitRoomUpdate(code);
       } catch (e) {
         ack({ ok: false, error: errMsg(e) });
@@ -114,14 +165,34 @@ export function registerSocketHandlers(io: IO): void {
         const code = data.code?.trim().toUpperCase();
         if (!name) return ack({ ok: false, error: "Please enter a name" });
         if (!code) return ack({ ok: false, error: "Please enter a room code" });
-        const { code: joinedCode, playerId, isNew } = rooms.joinRoom(code, name, socket.id);
+        const { code: joinedCode, playerId, isNew, sessionToken } = rooms.joinRoom(code, name, socket.id);
         socket.join(joinedCode);
-        ack({ ok: true, data: { code: joinedCode, playerId, isNew } });
+        ack({ ok: true, data: { code: joinedCode, playerId, isNew, sessionToken } });
         io.to(joinedCode).emit("room:joined", { code: joinedCode, playerId });
         if (isNew) socket.to(joinedCode).emit("player:joined", { playerId, name });
         emitRoomUpdate(joinedCode);
+        // C2 fix: emit game state for ALL non-idle phases (playing AND finished).
         const room = rooms.getRoom(joinedCode);
-        if (room?.state && room.state.phase === "playing") {
+        if (room?.state && room.state.phase !== "idle") {
+          io.to(socket.id).emit("game:state", toPublicGameState(room.state, playerId));
+        }
+      } catch (e) {
+        ack({ ok: false, error: errMsg(e) });
+      }
+    });
+
+    // C7 fix: token-based reconnect.
+    socket.on("room:reconnect", (data, ack) => {
+      try {
+        const code = data.code?.trim().toUpperCase();
+        if (!code) return ack({ ok: false, error: "Missing room code" });
+        const { code: reconCode, playerId, sessionToken } = rooms.reconnectWithToken(code, data.sessionToken, socket.id);
+        socket.join(reconCode);
+        ack({ ok: true, data: { code: reconCode, playerId, isNew: false, sessionToken } });
+        emitRoomUpdate(reconCode);
+        // C2 fix: emit game state for all non-idle phases.
+        const room = rooms.getRoom(reconCode);
+        if (room?.state && room.state.phase !== "idle") {
           io.to(socket.id).emit("game:state", toPublicGameState(room.state, playerId));
         }
       } catch (e) {
@@ -252,7 +323,7 @@ export function registerSocketHandlers(io: IO): void {
       try {
         const { room, player } = rooms.getPlayerBySocket(socket.id) ?? {};
         if (!room?.state || !player) return;
-        const res = callUno(room.state, player.id);
+        callUno(room.state, player.id);
         io.to(room.code).emit("uno:called", { playerId: player.id });
         emitGameState(room.code);
         emitRoomUpdate(room.code);
@@ -278,24 +349,40 @@ export function registerSocketHandlers(io: IO): void {
     socket.on("disconnect", () => {
       const session = rooms.getSession(socket.id);
       const room = rooms.getRoomBySocket(socket.id);
-      const inGame = room?.state && room.state.phase === "playing";
-      if (inGame && room) {
-        // Keep the seat so the player can reconnect; auto-play while away.
-        rooms.markDisconnected(socket.id);
-        emitRoomUpdate(room.code);
-        emitGameState(room.code);
-        scheduleAutoIfNeeded(room.code);
+      const hasGame = room?.state && room.state.phase !== "idle";
+
+      if (hasGame && room) {
+        // C1/C3/C4 fix: keep seat, reassign host immediately, emit game state.
+        const { room: r, hostReassigned } = rooms.markDisconnected(socket.id);
+        if (r) {
+          emitRoomUpdate(r.code);
+          emitGameState(r.code);
+          // C6 fix: resolve pending color pick if the picker left.
+          if (r.state && r.state.pendingColorPick) {
+            const st2 = r.state;
+            const picker = st2.players.find((p) => p.id === st2.pendingColorPick);
+            if (picker && !picker.connected && !picker.isBot) {
+              resolvePendingColorPick(st2);
+              emitGameState(r.code);
+              emitRoomUpdate(r.code);
+            }
+          }
+          scheduleAutoIfNeeded(r.code);
+        }
+        void hostReassigned;
       } else if (session && room) {
         // Lobby: give a short grace period for a refresh/reconnect, then remove.
         const code = session.code;
         const playerId = session.playerId;
-        rooms.markDisconnected(socket.id);
-        emitRoomUpdate(code);
+        const { room: r } = rooms.markDisconnected(socket.id);
+        if (r) {
+          emitRoomUpdate(code);
+        }
         setTimeout(() => {
           if (rooms.removePlayerIfAway(code, playerId)) {
             emitRoomUpdate(code);
           }
-        }, 8000);
+        }, RECONNECT_GRACE_MS);
       }
       void session;
     });

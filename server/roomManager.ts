@@ -4,8 +4,14 @@ import { MAX_PLAYERS, MIN_PLAYERS, ROOM_CODE_LENGTH } from "@/lib/constants";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I
 
 const rooms = new Map<string, Room>();
-/** socketId -> { code, playerId } */
-const sessions = new Map<string, { code: string; playerId: string }>();
+/** socketId -> { code, playerId, sessionToken } */
+const sessions = new Map<string, { code: string; playerId: string; sessionToken: string }>();
+/** sessionToken -> { code, playerId } — survives disconnect for reconnect */
+const tokens = new Map<string, { code: string; playerId: string }>();
+
+function generateToken(): string {
+  return Math.random().toString(36).slice(2, 18) + Date.now().toString(36);
+}
 
 function generateRoomCode(): string {
   for (let attempt = 0; attempt < 1000; attempt++) {
@@ -70,12 +76,13 @@ function makePlayer(
   };
 }
 
-export function createRoom(name: string, socketId: string): { code: string; playerId: string } {
+export function createRoom(name: string, socketId: string): { code: string; playerId: string; sessionToken: string } {
   if (sessions.has(socketId)) {
     leaveRoom(socketId);
   }
   const code = generateRoomCode();
   const playerId = socketId;
+  const sessionToken = generateToken();
   const player = makePlayer(playerId, name, true, false, 0);
   const room: Room = {
     code,
@@ -85,15 +92,16 @@ export function createRoom(name: string, socketId: string): { code: string; play
     createdAt: Date.now(),
   };
   rooms.set(code, room);
-  sessions.set(socketId, { code, playerId });
-  return { code, playerId };
+  sessions.set(socketId, { code, playerId, sessionToken });
+  tokens.set(sessionToken, { code, playerId });
+  return { code, playerId, sessionToken };
 }
 
 export function joinRoom(
   code: string,
   name: string,
   socketId: string,
-): { code: string; playerId: string; isNew: boolean } {
+): { code: string; playerId: string; isNew: boolean; sessionToken: string } {
   const upper = code.toUpperCase().trim();
   const room = rooms.get(upper);
   if (!room) throw new Error("Room not found");
@@ -104,7 +112,7 @@ export function joinRoom(
     const p = room.players.find((pp) => pp.id === prior.playerId);
     if (p) {
       p.connected = true;
-      return { code: upper, playerId: p.id, isNew: false };
+      return { code: upper, playerId: p.id, isNew: false, sessionToken: prior.sessionToken };
     }
   }
   // In a different room: leave it first.
@@ -121,8 +129,10 @@ export function joinRoom(
   if (byName) {
     byName.connected = true;
     byName.id = socketId;
-    sessions.set(socketId, { code: upper, playerId: byName.id });
-    return { code: upper, playerId: byName.id, isNew: false };
+    const sessionToken = generateToken();
+    sessions.set(socketId, { code: upper, playerId: byName.id, sessionToken });
+    tokens.set(sessionToken, { code: upper, playerId: byName.id });
+    return { code: upper, playerId: byName.id, isNew: false, sessionToken };
   }
 
   if (inProgress) throw new Error("Game already in progress");
@@ -131,17 +141,51 @@ export function joinRoom(
   if (humanCount >= MAX_PLAYERS) throw new Error("Room is full");
 
   const playerId = socketId;
+  const sessionToken = generateToken();
   const position = room.players.length;
   const player = makePlayer(playerId, name, false, false, position);
   room.players.push(player);
-  sessions.set(socketId, { code: upper, playerId });
-  return { code: upper, playerId, isNew: true };
+  sessions.set(socketId, { code: upper, playerId, sessionToken });
+  tokens.set(sessionToken, { code: upper, playerId });
+  return { code: upper, playerId, isNew: true, sessionToken };
+}
+
+/** Reconnect using a session token (C7 fix). Validates token, revives seat. */
+export function reconnectWithToken(
+  code: string,
+  sessionToken: string,
+  socketId: string,
+): { code: string; playerId: string; isNew: boolean; sessionToken: string } {
+  const upper = code.toUpperCase().trim();
+  const tokenData = tokens.get(sessionToken);
+  if (!tokenData || tokenData.code !== upper) {
+    throw new Error("Invalid or expired session");
+  }
+  const room = rooms.get(upper);
+  if (!room) throw new Error("Room not found");
+
+  const player = room.players.find((p) => p.id === tokenData.playerId);
+  if (!player) throw new Error("Player not found");
+
+  // Leave any prior room first
+  const prior = sessions.get(socketId);
+  if (prior && prior.code !== upper) {
+    leaveRoom(socketId);
+  }
+
+  player.connected = true;
+  player.id = socketId;
+  // Keep the same token — it's still valid
+  sessions.set(socketId, { code: upper, playerId: player.id, sessionToken });
+  return { code: upper, playerId: player.id, isNew: false, sessionToken };
 }
 
 export function leaveRoom(socketId: string): { code: string | null } {
   const session = sessions.get(socketId);
   if (!session) return { code: null };
   const room = rooms.get(session.code);
+  // Clean up the token
+  tokens.delete(session.sessionToken);
   sessions.delete(socketId);
   if (!room) return { code: session.code };
 
@@ -158,16 +202,34 @@ export function leaveRoom(socketId: string): { code: string | null } {
 
   // Reassign positions and host if needed.
   room.players.forEach((p, i) => (p.position = i));
-  if (room.hostId === leaving.id) {
-    const nextHuman = room.players.find((p) => !p.isBot && p.connected);
-    const newHost = nextHuman ?? room.players[0];
-    if (newHost) {
-      newHost.isHost = true;
-      newHost.ready = true;
-      room.hostId = newHost.id;
-    }
-  }
+  reassignHost(room);
   return { code: session.code };
+}
+
+/** Reassign host to the next connected human if the current host is gone (C3/C4 fix). */
+export function reassignHost(room: Room): boolean {
+  const currentHost = room.players.find((p) => p.id === room.hostId);
+  if (currentHost && currentHost.connected) return false;
+
+  // Find next connected human, then any human, then any player
+  const nextHost =
+    room.players.find((p) => !p.isBot && p.connected) ??
+    room.players.find((p) => !p.isBot) ??
+    room.players[0];
+
+  if (nextHost && nextHost.id !== room.hostId) {
+    if (currentHost) currentHost.isHost = false;
+    nextHost.isHost = true;
+    nextHost.ready = true;
+    room.hostId = nextHost.id;
+    return true;
+  }
+  return false;
+}
+
+/** Count connected human players (for C5 all-away detection). */
+export function connectedHumansCount(room: Room): number {
+  return room.players.filter((p) => !p.isBot && p.connected).length;
 }
 
 /** Remove a specific player if they are still marked disconnected (used by the grace timer). */
@@ -182,14 +244,7 @@ export function removePlayerIfAway(code: string, playerId: string): boolean {
     return true;
   }
   room.players.forEach((pp, i) => (pp.position = i));
-  if (room.hostId === playerId) {
-    const next = room.players.find((pp) => !pp.isBot && pp.connected) ?? room.players[0];
-    if (next) {
-      next.isHost = true;
-      next.ready = true;
-      room.hostId = next.id;
-    }
-  }
+  reassignHost(room);
   return true;
 }
 export function addBot(code: string): Player {
@@ -291,16 +346,21 @@ export function toPublicRoom(room: Room): PublicRoom {
   };
 }
 
-/** Mark a socket's player as disconnected (do not remove, so they can reconnect). */
-export function markDisconnected(socketId: string): Room | undefined {
+/** Mark a socket's player as disconnected (do not remove, so they can reconnect).
+ *  Returns the room and whether the host was reassigned (C3/C4 fix). */
+export function markDisconnected(socketId: string): {
+  room: Room | undefined;
+  hostReassigned: boolean;
+} {
   const session = sessions.get(socketId);
-  if (!session) return undefined;
+  if (!session) return { room: undefined, hostReassigned: false };
   const room = rooms.get(session.code);
-  if (!room) return undefined;
+  if (!room) return { room: undefined, hostReassigned: false };
   const player = room.players.find((p) => p.id === session.playerId);
   if (player) player.connected = false;
   sessions.delete(socketId);
-  return room;
+  const hostReassigned = reassignHost(room);
+  return { room, hostReassigned };
 }
 
 /** Total room count (for diagnostics / future lobby list). */

@@ -137,11 +137,13 @@ export type Ack<T> = (res: AckSuccess<T> | AckError) => void;
 export interface CreateRoomResult {
   code: string;
   playerId: string;
+  sessionToken: string;
 }
 export interface JoinRoomResult {
   code: string;
   playerId: string;
   isNew: boolean;
+  sessionToken: string;
 }
 export interface PlayCardResult {
   needsColor: boolean;
@@ -171,6 +173,10 @@ export interface ClientToServerEvents {
   "room:create": (data: { name: string }, ack: Ack<CreateRoomResult>) => void;
   "room:join": (
     data: { code: string; name: string },
+    ack: Ack<JoinRoomResult>,
+  ) => void;
+  "room:reconnect": (
+    data: { code: string; sessionToken: string },
     ack: Ack<JoinRoomResult>,
   ) => void;
   "room:leave": () => void;

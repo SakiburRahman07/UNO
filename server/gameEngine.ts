@@ -232,6 +232,37 @@ export function chooseColor(
   resetTurnFlags(state);
 }
 
+/** C6 fix: auto-resolve a pending color pick when its owner disconnects.
+ *  Picks a sensible color (the picker's dominant hand color) and applies the effect. */
+export function resolvePendingColorPick(state: GameState): boolean {
+  if (!state.pendingColorPick) return false;
+  const pickerId = state.pendingColorPick;
+  const picker = state.players.find((p) => p.id === pickerId);
+  const color = picker ? chooseBotColor(picker.hand) : "red";
+  state.pendingColorPick = null;
+  state.activeColor = color;
+  const top = state.discard[state.discard.length - 1];
+  const { event, skippedId } = applyCardEffect(state, top);
+  state.lastSkippedId = skippedId;
+  const colorName = color.charAt(0).toUpperCase() + color.slice(1);
+  setEvent(state, `${picker?.name ?? "Player"} (away) chose ${colorName}${event ? " — " + event : ""}`);
+  resetTurnFlags(state);
+  return true;
+}
+
+/** C5 fix: end the game if all humans are away (declare the bot with fewest cards winner). */
+export function endGameIfAllAway(state: GameState, connectedHumans: number): boolean {
+  if (state.phase !== "playing") return false;
+  if (connectedHumans > 0) return false;
+  // Find the player with the fewest cards.
+  const sorted = [...state.players].sort((a, b) => a.hand.length - b.hand.length);
+  const winner = sorted[0];
+  if (winner) {
+    declareWinner(state, winner);
+  }
+  return true;
+}
+
 /** Draw a card (or the full stacked penalty). */
 export function drawCards(state: GameState, playerId: string): Card[] {
   if (state.phase !== "playing") throw new Error("Game is not active");

@@ -18,6 +18,7 @@ import {
   Swords,
   Shield,
   Globe,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,9 @@ import { useSound } from "@/hooks/useSound";
 import { useTheme } from "@/components/theme-provider";
 import { FloatingCards } from "@/components/game/FloatingCards";
 import { ParticleField } from "@/components/game/ParticleField";
+import { HowToPlay } from "@/components/game/HowToPlay";
 import { NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
+import { saveSession } from "@/lib/session";
 import { toast } from "@/components/ui/toaster";
 
 function ensureConnected(socket: import("@/lib/socket").AppSocket): Promise<void> {
@@ -65,6 +68,7 @@ export default function HomePage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [joinOpen, setJoinOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [showHelp, setShowHelp] = React.useState(false);
 
   const saveName = (n: string) => {
     localStorage.setItem(STORAGE_KEYS.playerName, n);
@@ -85,6 +89,7 @@ export default function HomePage() {
       const res = await socket.emitWithAck("room:create", { name: n });
       if (res.ok) {
         saveName(n);
+        saveSession({ code: res.data.code, playerId: res.data.playerId, sessionToken: res.data.sessionToken });
         play("join");
         router.push(NAV_ROUTES.lobby(res.data.code));
       } else {
@@ -116,6 +121,7 @@ export default function HomePage() {
       const res = await socket.emitWithAck("room:join", { code, name: n });
       if (res.ok) {
         saveName(n);
+        saveSession({ code: res.data.code, playerId: res.data.playerId, sessionToken: res.data.sessionToken });
         play("join");
         router.push(NAV_ROUTES.lobby(res.data.code));
       } else {
@@ -160,6 +166,9 @@ export default function HomePage() {
           </Button>
           <Button variant="glass" size="icon" onClick={() => { toggleTheme(); play("click"); }} aria-label="Toggle theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          <Button variant="glass" size="icon" onClick={() => { setShowHelp(true); play("click"); }} aria-label="How to play">
+            <HelpCircle className="h-4 w-4" />
           </Button>
         </div>
       </header>
@@ -333,6 +342,8 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <HowToPlay open={showHelp} onClose={() => setShowHelp(false)} />
     </main>
   );
 }
