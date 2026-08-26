@@ -166,6 +166,7 @@ export interface ServerToClientEvents {
   "uno:called": (data: { playerId: string }) => void;
   "player:joined": (data: { playerId: string; name: string }) => void;
   "player:left": (data: { playerId: string }) => void;
+  "chat:message": (data: import("@/types/chat").ChatMessage) => void;
   error: (message: string) => void;
 }
 
@@ -189,6 +190,7 @@ export interface ClientToServerEvents {
   "turn:pass": () => void;
   "color:choose": (data: { color: CardColor }) => void;
   "uno:call": () => void;
+  "chat:send": (data: { text: string }) => void;
   "game:restart": () => void;
 }
 

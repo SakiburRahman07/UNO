@@ -4,6 +4,8 @@ import type {
   GamePhase,
   ServerToClientEvents,
 } from "@/types/uno";
+import type { ChatMessage } from "@/types/chat";
+import { MAX_CHAT_LENGTH } from "@/types/chat";
 import * as rooms from "@/server/roomManager";
 import {
   callUno,
@@ -42,6 +44,40 @@ export function registerSocketHandlers(io: IO): void {
       if (p.isBot) continue;
       io.to(p.id).emit("game:state", toPublicGameState(room.state, p.id));
     }
+  }
+
+  let chatMsgCounter = 0;
+  function nextChatId(): string {
+    chatMsgCounter += 1;
+    return `m${chatMsgCounter.toString(36)}`;
+  }
+
+  function emitSystemChat(code: string, text: string): void {
+    const msg: ChatMessage = {
+      id: nextChatId(),
+      playerId: "system",
+      name: "System",
+      text,
+      at: Date.now(),
+      system: true,
+    };
+    io.to(code).emit("chat:message", msg);
+  }
+
+  function emitGameEndChat(code: string, winnerId: string): void {
+    const room = rooms.getRoom(code);
+    const winner = room?.players.find((p) => p.id === winnerId);
+    emitSystemChat(code, winner ? `${winner.name} wins!` : "Game over!");
+  }
+
+  // Per-player rate limiting: 1 msg / 500ms
+  const lastChatAt = new Map<string, number>();
+  function canPlayerChat(playerId: string): boolean {
+    const now = Date.now();
+    const last = lastChatAt.get(playerId) ?? 0;
+    if (now - last < 500) return false;
+    lastChatAt.set(playerId, now);
+    return true;
   }
 
   /** Emit game state OR room update depending on phase (C2 fix — finished games too). */
@@ -84,6 +120,7 @@ export function registerSocketHandlers(io: IO): void {
         });
         emitGameState(code);
         emitRoomUpdate(code);
+        emitGameEndChat(code, state.winnerId!);
       }
       return;
     }
@@ -129,6 +166,7 @@ export function registerSocketHandlers(io: IO): void {
           winnerId: r.state.winnerId!,
           rankings: r.state.rankings,
         });
+        emitGameEndChat(code, r.state.winnerId!);
       }
       emitGameState(code);
       emitRoomUpdate(code);
@@ -141,6 +179,7 @@ export function registerSocketHandlers(io: IO): void {
     emitGameState(code);
     io.to(code).emit("game:started", { code });
     emitRoomUpdate(code);
+    emitSystemChat(code, "Game started!");
     scheduleAutoIfNeeded(code);
   }
 
@@ -169,7 +208,10 @@ export function registerSocketHandlers(io: IO): void {
         socket.join(joinedCode);
         ack({ ok: true, data: { code: joinedCode, playerId, isNew, sessionToken } });
         io.to(joinedCode).emit("room:joined", { code: joinedCode, playerId });
-        if (isNew) socket.to(joinedCode).emit("player:joined", { playerId, name });
+        if (isNew) {
+          socket.to(joinedCode).emit("player:joined", { playerId, name });
+          emitSystemChat(joinedCode, `${name} joined the room`);
+        }
         emitRoomUpdate(joinedCode);
         // C2 fix: emit game state for ALL non-idle phases (playing AND finished).
         const room = rooms.getRoom(joinedCode);
@@ -202,9 +244,12 @@ export function registerSocketHandlers(io: IO): void {
 
     socket.on("room:leave", () => {
       const session = rooms.getSession(socket.id);
+      const room = rooms.getRoomBySocket(socket.id);
+      const leavingName = room?.players.find((p) => p.id === session?.playerId)?.name;
       const { code } = rooms.leaveRoom(socket.id);
       if (code) socket.leave(code);
       if (code) emitRoomUpdate(code);
+      if (code && leavingName) emitSystemChat(code, `${leavingName} left the room`);
       if (code && session) scheduleAutoIfNeeded(code);
     });
 
@@ -269,6 +314,7 @@ export function registerSocketHandlers(io: IO): void {
             winnerId: room.state.winnerId!,
             rankings: room.state.rankings,
           });
+          emitGameEndChat(room.code, room.state.winnerId!);
         }
         emitRoomUpdate(room.code);
         if (room.state.phase === "playing") scheduleAutoIfNeeded(room.code);
@@ -346,10 +392,31 @@ export function registerSocketHandlers(io: IO): void {
       }
     });
 
+    socket.on("chat:send", (data) => {
+      try {
+        const { room, player } = rooms.getPlayerBySocket(socket.id) ?? {};
+        if (!room || !player || player.isBot) return;
+        if (!canPlayerChat(player.id)) return;
+        const text = (data.text ?? "").trim().replace(/\s+/g, " ").slice(0, MAX_CHAT_LENGTH);
+        if (!text) return;
+        const msg: ChatMessage = {
+          id: nextChatId(),
+          playerId: player.id,
+          name: player.name,
+          text,
+          at: Date.now(),
+        };
+        io.to(room.code).emit("chat:message", msg);
+      } catch {
+        // ignore
+      }
+    });
+
     socket.on("disconnect", () => {
       const session = rooms.getSession(socket.id);
       const room = rooms.getRoomBySocket(socket.id);
       const hasGame = room?.state && room.state.phase !== "idle";
+      const leavingName = room?.players.find((p) => p.id === session?.playerId)?.name;
 
       if (hasGame && room) {
         // C1/C3/C4 fix: keep seat, reassign host immediately, emit game state.
@@ -357,6 +424,7 @@ export function registerSocketHandlers(io: IO): void {
         if (r) {
           emitRoomUpdate(r.code);
           emitGameState(r.code);
+          if (leavingName) emitSystemChat(r.code, `${leavingName} left the game`);
           // C6 fix: resolve pending color pick if the picker left.
           if (r.state && r.state.pendingColorPick) {
             const st2 = r.state;
@@ -377,6 +445,7 @@ export function registerSocketHandlers(io: IO): void {
         const { room: r } = rooms.markDisconnected(socket.id);
         if (r) {
           emitRoomUpdate(code);
+          if (leavingName) emitSystemChat(code, `${leavingName} left the room`);
         }
         setTimeout(() => {
           if (rooms.removePlayerIfAway(code, playerId)) {

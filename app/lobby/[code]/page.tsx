@@ -26,10 +26,12 @@ import { Badge } from "@/components/ui/badge";
 import { useSocket } from "@/hooks/useSocket";
 import { useRoom } from "@/hooks/useRoom";
 import { useSound } from "@/hooks/useSound";
+import { useChat } from "@/hooks/useChat";
 import { useTheme } from "@/components/theme-provider";
 import { avatarGradient, cn, initials } from "@/lib/utils";
 import { MIN_PLAYERS, NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
 import { getStoredSession, clearSession } from "@/lib/session";
+import { ChatPanel } from "@/components/game/ChatPanel";
 import { toast } from "@/components/ui/toaster";
 import type { PublicPlayer } from "@/types/uno";
 
@@ -117,6 +119,7 @@ export default function LobbyPage() {
   const { socket, isConnected } = useSocket();
   const room = useRoom(socket);
   const { play, muted, toggleMute } = useSound();
+  const { messages, sendMessage } = useChat(socket);
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = React.useState(false);
   const [starting, setStarting] = React.useState(false);
@@ -370,6 +373,16 @@ export default function LobbyPage() {
             <LogOut className="h-4 w-4" />
             Leave room
           </Button>
+        </div>
+
+        {/* chat */}
+        <div className="mt-8">
+          <h2 className="mb-2 font-display text-lg font-semibold">Chat</h2>
+          <ChatPanel
+            messages={messages}
+            sendMessage={sendMessage}
+            myPlayerId={myId}
+          />
         </div>
 
         {!isConnected && (

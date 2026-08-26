@@ -19,6 +19,7 @@ import {
   Gamepad2,
   Loader2,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,10 +37,13 @@ import { PlayerSeat } from "@/components/game/PlayerSeat";
 import { ColorPicker } from "@/components/game/ColorPicker";
 import { WinnerModal } from "@/components/game/WinnerModal";
 import { UnoButton } from "@/components/game/UnoButton";
+import { ChatPanel } from "@/components/game/ChatPanel";
+import { ChatDrawer, ChatToggleButton } from "@/components/game/ChatDrawer";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useSocket } from "@/hooks/useSocket";
 import { useGameState } from "@/hooks/useGameState";
 import { useSound } from "@/hooks/useSound";
+import { useChat } from "@/hooks/useChat";
 import { useTheme } from "@/components/theme-provider";
 import { getPlayableCards } from "@/server/unoRules";
 import { NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
@@ -63,9 +67,16 @@ export default function GamePage() {
   const { socket, isConnected } = useSocket();
   const { state, gameEnd, unoCaller } = useGameState(socket);
   const { play, muted, toggleMute } = useSound();
+  const { messages, sendMessage } = useChat(socket);
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [showHelp, setShowHelp] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(STORAGE_KEYS.hasSeenOnboarding) !== "1";
+  });
+  const [confirmLeave, setConfirmLeave] = React.useState(false);
+  const [chatOpen, setChatOpen] = React.useState(false);
 
   const myId = socket?.id ?? "";
   const me = state?.players.find((p) => p.id === myId);
@@ -123,12 +134,6 @@ export default function GamePage() {
     return () => clearTimeout(t);
   }, [socket, state, code, router]);
 
-  // H1: auto-show onboarding for first-time users (lazy initial state).
-  const [showHelp, setShowHelp] = React.useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(STORAGE_KEYS.hasSeenOnboarding) !== "1";
-  });
-
   // Sound cues on transitions.
   const prevTurn = React.useRef(false);
   React.useEffect(() => {
@@ -160,6 +165,10 @@ export default function GamePage() {
       play("error");
     }
   }, [state?.lastEvent, state?.lastEventAt, state, me?.name, play]);
+
+  // Track unread chat messages when drawer is closed.
+  const [lastSeenCount, setLastSeenCount] = React.useState(0);
+  const unreadChat = chatOpen ? 0 : Math.max(0, messages.length - lastSeenCount);
 
   // Playable card ids (client-side highlight).
   const playableIds = React.useMemo(() => {
@@ -247,8 +256,6 @@ export default function GamePage() {
     router.replace(NAV_ROUTES.home);
   };
 
-  const [confirmLeave, setConfirmLeave] = React.useState(false);
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code.toUpperCase());
@@ -275,10 +282,12 @@ export default function GamePage() {
   const isHost = me?.isHost ?? false;
 
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-x-hidden">
+    <main className="relative flex min-h-dvh flex-col overflow-x-hidden lg:flex-row">
       <div className="fixed inset-0 -z-10 bg-radial" />
       <div className="pointer-events-none fixed inset-0 -z-10 bg-radial-glow" />
 
+      {/* game content */}
+      <div className="flex min-w-0 flex-1 flex-col">
       {/* header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
@@ -307,6 +316,9 @@ export default function GamePage() {
           <Button variant="glass" size="icon" onClick={() => { setShowHelp(true); play("click"); }} aria-label="How to play">
             <HelpCircle className="h-4 w-4" />
           </Button>
+          <div className="lg:hidden">
+            <ChatToggleButton onClick={() => { setLastSeenCount(messages.length); setChatOpen(true); }} unreadCount={unreadChat} />
+          </div>
         </div>
       </header>
 
@@ -545,6 +557,32 @@ export default function GamePage() {
           onLeave={handleLeave}
         />
       )}
+      </div>
+
+      {/* chat sidebar (desktop lg+) */}
+      <aside className="hidden w-72 shrink-0 flex-col border-l border-border-subtle p-4 lg:flex">
+        <div className="mb-2 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-fuchsia-400" />
+          <span className="font-display text-sm font-semibold">Chat</span>
+        </div>
+        <ChatPanel
+          messages={messages}
+          sendMessage={sendMessage}
+          myPlayerId={myId}
+          maxH="flex-1"
+          className="flex-1"
+        />
+      </aside>
+
+      {/* chat drawer (mobile) */}
+      <ChatDrawer
+        open={chatOpen}
+        onClose={() => { setLastSeenCount(messages.length); setChatOpen(false); }}
+        messages={messages}
+        sendMessage={sendMessage}
+        myPlayerId={myId}
+        unreadCount={unreadChat}
+      />
     </main>
   );
 }
