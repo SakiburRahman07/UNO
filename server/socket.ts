@@ -21,7 +21,7 @@ import {
   startGame,
   toPublicGameState,
 } from "@/server/gameEngine";
-import { BOT_TURN_DELAY_MS, CALL_SIGNAL_RATE_MS, RECONNECT_GRACE_MS } from "@/lib/constants";
+import { BOT_TURN_DELAY_MS, RECONNECT_GRACE_MS } from "@/lib/constants";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -85,7 +85,6 @@ export function registerSocketHandlers(io: IO): void {
   // code -> (playerId -> CallParticipant). Callers also join a sub-room
   // `${code}__call` so call:state broadcasts only reach participants.
   const callRosters = new Map<string, Map<string, CallParticipant>>();
-  const lastCallSignalAt = new Map<string, number>();
 
   function getCallRoster(code: string): Map<string, CallParticipant> {
     let m = callRosters.get(code);
@@ -103,15 +102,6 @@ export function registerSocketHandlers(io: IO): void {
       return;
     }
     io.to(`${code}__call`).emit("call:state", [...roster.values()]);
-  }
-
-  /** Rate-limit WebRTC signaling (offer/answer/ice) per player. */
-  function canSignal(playerId: string): boolean {
-    const now = Date.now();
-    const last = lastCallSignalAt.get(playerId) ?? 0;
-    if (now - last < CALL_SIGNAL_RATE_MS) return false;
-    lastCallSignalAt.set(playerId, now);
-    return true;
   }
 
   /** Remove a socket from its room's call roster (if present) + notify callers. */
@@ -493,7 +483,6 @@ export function registerSocketHandlers(io: IO): void {
       if (!room) return;
       const roster = callRosters.get(room.code);
       if (!roster?.has(socket.id) || !roster.has(data.to)) return; // both must be in call
-      if (!canSignal(socket.id)) return;
       io.to(data.to).emit("call:offer", { from: socket.id, sdp: data.sdp });
     });
 
@@ -502,7 +491,6 @@ export function registerSocketHandlers(io: IO): void {
       if (!room) return;
       const roster = callRosters.get(room.code);
       if (!roster?.has(socket.id) || !roster.has(data.to)) return;
-      if (!canSignal(socket.id)) return;
       io.to(data.to).emit("call:answer", { from: socket.id, sdp: data.sdp });
     });
 
@@ -511,7 +499,6 @@ export function registerSocketHandlers(io: IO): void {
       if (!room) return;
       const roster = callRosters.get(room.code);
       if (!roster?.has(socket.id) || !roster.has(data.to)) return;
-      if (!canSignal(socket.id)) return;
       io.to(data.to).emit("call:ice", { from: socket.id, candidate: data.candidate });
     });
 
