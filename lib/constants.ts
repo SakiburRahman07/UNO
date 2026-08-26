@@ -10,6 +10,9 @@ export const BOT_NAME_PREFIX = "Bot";
 
 export const UNO_PENALTY_CARDS = 2;
 
+/** Minimum gap between WebRTC signaling events (call:offer/answer/ice) per player. */
+export const CALL_SIGNAL_RATE_MS = 10;
+
 export const ROOM_CLEANUP_MS = 30 * 60 * 1000; // 30 minutes of inactivity
 export const RECONNECT_GRACE_MS = 8000;
 

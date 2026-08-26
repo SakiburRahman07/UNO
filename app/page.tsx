@@ -39,8 +39,15 @@ import { HowToPlay } from "@/components/game/HowToPlay";
 import { NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
 import { saveSession } from "@/lib/session";
 import { toast } from "@/components/ui/toaster";
+import type { AppSocket } from "@/lib/socket";
+import type {
+  AckError,
+  AckSuccess,
+  CreateRoomResult,
+  JoinRoomResult,
+} from "@/types/uno";
 
-function ensureConnected(socket: import("@/lib/socket").AppSocket): Promise<void> {
+function ensureConnected(socket: AppSocket): Promise<void> {
   return new Promise((resolve) => {
     if (socket.connected) return resolve();
     const onConn = () => {
@@ -53,16 +60,39 @@ function ensureConnected(socket: import("@/lib/socket").AppSocket): Promise<void
 }
 
 /** Wrap emitWithAck with a timeout so buttons never hang forever. */
-function emitWithTimeout<T>(socket: import("@/lib/socket").AppSocket, event: string, data: unknown, ms = 8000): Promise<T | null> {
+function emitWithTimeout(
+  socket: AppSocket,
+  event: "room:create",
+  data: { name: string },
+  ms?: number,
+): Promise<(AckSuccess<CreateRoomResult> | AckError) | null>;
+function emitWithTimeout(
+  socket: AppSocket,
+  event: "room:join",
+  data: { code: string; name: string },
+  ms?: number,
+): Promise<(AckSuccess<JoinRoomResult> | AckError) | null>;
+function emitWithTimeout(
+  socket: AppSocket,
+  event: string,
+  data: unknown,
+  ms = 8000,
+): Promise<unknown> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), ms);
-    socket.emitWithAck(event, data as never).then((res: T) => {
-      clearTimeout(timer);
-      resolve(res);
-    }).catch(() => {
-      clearTimeout(timer);
-      resolve(null);
-    });
+    const loose = socket as unknown as {
+      emitWithAck: (event: string, data: unknown) => Promise<unknown>;
+    };
+    loose
+      .emitWithAck(event, data)
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(null);
+      });
   });
 }
 

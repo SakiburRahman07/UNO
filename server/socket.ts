@@ -6,6 +6,7 @@ import type {
 } from "@/types/uno";
 import type { ChatMessage } from "@/types/chat";
 import { MAX_CHAT_LENGTH } from "@/types/chat";
+import type { CallParticipant } from "@/types/call";
 import * as rooms from "@/server/roomManager";
 import {
   callUno,
@@ -20,7 +21,7 @@ import {
   startGame,
   toPublicGameState,
 } from "@/server/gameEngine";
-import { BOT_TURN_DELAY_MS, RECONNECT_GRACE_MS } from "@/lib/constants";
+import { BOT_TURN_DELAY_MS, CALL_SIGNAL_RATE_MS, RECONNECT_GRACE_MS } from "@/lib/constants";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -78,6 +79,51 @@ export function registerSocketHandlers(io: IO): void {
     if (now - last < 500) return false;
     lastChatAt.set(playerId, now);
     return true;
+  }
+
+  // ---- Audio call roster ----
+  // code -> (playerId -> CallParticipant). Callers also join a sub-room
+  // `${code}__call` so call:state broadcasts only reach participants.
+  const callRosters = new Map<string, Map<string, CallParticipant>>();
+  const lastCallSignalAt = new Map<string, number>();
+
+  function getCallRoster(code: string): Map<string, CallParticipant> {
+    let m = callRosters.get(code);
+    if (!m) {
+      m = new Map();
+      callRosters.set(code, m);
+    }
+    return m;
+  }
+
+  function emitCallState(code: string): void {
+    const roster = callRosters.get(code);
+    if (!roster) {
+      io.to(`${code}__call`).emit("call:state", []);
+      return;
+    }
+    io.to(`${code}__call`).emit("call:state", [...roster.values()]);
+  }
+
+  /** Rate-limit WebRTC signaling (offer/answer/ice) per player. */
+  function canSignal(playerId: string): boolean {
+    const now = Date.now();
+    const last = lastCallSignalAt.get(playerId) ?? 0;
+    if (now - last < CALL_SIGNAL_RATE_MS) return false;
+    lastCallSignalAt.set(playerId, now);
+    return true;
+  }
+
+  /** Remove a socket from its room's call roster (if present) + notify callers. */
+  function cleanupCall(socketId: string, code: string | null): void {
+    if (!code) return;
+    const roster = callRosters.get(code);
+    if (roster?.delete(socketId)) {
+      if (roster.size === 0) callRosters.delete(code);
+      emitCallState(code);
+    }
+    // The socket auto-leaves the sub-room on disconnect; for room:leave we
+    // explicitly leave below.
   }
 
   /** Emit game state OR room update depending on phase (C2 fix — finished games too). */
@@ -246,6 +292,12 @@ export function registerSocketHandlers(io: IO): void {
       const session = rooms.getSession(socket.id);
       const room = rooms.getRoomBySocket(socket.id);
       const leavingName = room?.players.find((p) => p.id === session?.playerId)?.name;
+      const callCode = session?.code ?? null;
+      // Audio call cleanup: leave the call sub-room + drop from roster first.
+      if (callCode) {
+        socket.leave(`${callCode}__call`);
+        cleanupCall(socket.id, callCode);
+      }
       const { code } = rooms.leaveRoom(socket.id);
       if (code) socket.leave(code);
       if (code) emitRoomUpdate(code);
@@ -412,6 +464,67 @@ export function registerSocketHandlers(io: IO): void {
       }
     });
 
+    // ---- Audio call (WebRTC signaling relay) ----
+    socket.on("call:join", (ack) => {
+      try {
+        const { room, player } = rooms.getPlayerBySocket(socket.id) ?? {};
+        if (!room || !player) return ack({ ok: false, error: "Not in a room" });
+        if (player.isBot) return ack({ ok: false, error: "Bots cannot join calls" });
+        const callRoom = `${room.code}__call`;
+        socket.join(callRoom);
+        const roster = getCallRoster(room.code);
+        roster.set(player.id, { playerId: player.id, name: player.name, muted: false });
+        ack({ ok: true, data: [...roster.values()] });
+        emitCallState(room.code);
+      } catch (e) {
+        ack({ ok: false, error: errMsg(e) });
+      }
+    });
+
+    socket.on("call:leave", () => {
+      const room = rooms.getRoomBySocket(socket.id);
+      if (!room) return;
+      socket.leave(`${room.code}__call`);
+      cleanupCall(socket.id, room.code);
+    });
+
+    socket.on("call:offer", (data) => {
+      const room = rooms.getRoomBySocket(socket.id);
+      if (!room) return;
+      const roster = callRosters.get(room.code);
+      if (!roster?.has(socket.id) || !roster.has(data.to)) return; // both must be in call
+      if (!canSignal(socket.id)) return;
+      io.to(data.to).emit("call:offer", { from: socket.id, sdp: data.sdp });
+    });
+
+    socket.on("call:answer", (data) => {
+      const room = rooms.getRoomBySocket(socket.id);
+      if (!room) return;
+      const roster = callRosters.get(room.code);
+      if (!roster?.has(socket.id) || !roster.has(data.to)) return;
+      if (!canSignal(socket.id)) return;
+      io.to(data.to).emit("call:answer", { from: socket.id, sdp: data.sdp });
+    });
+
+    socket.on("call:ice", (data) => {
+      const room = rooms.getRoomBySocket(socket.id);
+      if (!room) return;
+      const roster = callRosters.get(room.code);
+      if (!roster?.has(socket.id) || !roster.has(data.to)) return;
+      if (!canSignal(socket.id)) return;
+      io.to(data.to).emit("call:ice", { from: socket.id, candidate: data.candidate });
+    });
+
+    socket.on("call:toggle-mute", () => {
+      const room = rooms.getRoomBySocket(socket.id);
+      if (!room) return;
+      const roster = callRosters.get(room.code);
+      const me = roster?.get(socket.id);
+      if (!me) return;
+      me.muted = !me.muted;
+      emitCallState(room.code);
+    });
+
     socket.on("disconnect", () => {
       const session = rooms.getSession(socket.id);
       const room = rooms.getRoomBySocket(socket.id);
@@ -453,6 +566,9 @@ export function registerSocketHandlers(io: IO): void {
           }
         }, RECONNECT_GRACE_MS);
       }
+      // Audio call cleanup: drop the disconnected peer from the roster + notify
+      // remaining callers. The socket auto-leaves the `${code}__call` sub-room.
+      cleanupCall(socket.id, room?.code ?? null);
       void session;
     });
   });

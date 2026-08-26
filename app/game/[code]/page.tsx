@@ -39,11 +39,16 @@ import { WinnerModal } from "@/components/game/WinnerModal";
 import { UnoButton } from "@/components/game/UnoButton";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { ChatDrawer, ChatToggleButton } from "@/components/game/ChatDrawer";
+import {
+  AudioCallDrawer,
+  CallToggleButton,
+} from "@/components/game/AudioCallDrawer";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useSocket } from "@/hooks/useSocket";
 import { useGameState } from "@/hooks/useGameState";
 import { useSound } from "@/hooks/useSound";
 import { useChat } from "@/hooks/useChat";
+import { useAudioCall } from "@/hooks/useAudioCall";
 import { useTheme } from "@/components/theme-provider";
 import { getPlayableCards } from "@/server/unoRules";
 import { NAV_ROUTES, STORAGE_KEYS } from "@/lib/constants";
@@ -66,7 +71,7 @@ export default function GamePage() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
   const { state, gameEnd, unoCaller } = useGameState(socket);
-  const { play, muted, toggleMute } = useSound();
+  const { play, muted: soundMuted, toggleMute: toggleSoundMute } = useSound();
   const { messages, sendMessage } = useChat(socket);
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = React.useState(false);
@@ -77,8 +82,11 @@ export default function GamePage() {
   });
   const [confirmLeave, setConfirmLeave] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [callOpen, setCallOpen] = React.useState(false);
+  const [callJoining, setCallJoining] = React.useState(false);
 
   const myId = socket?.id ?? "";
+  const audioCall = useAudioCall(socket, myId);
   const me = state?.players.find((p) => p.id === myId);
   const isMyTurn = state?.isMyTurn ?? false;
   const pendingColor = state?.pendingColorPick === myId;
@@ -267,6 +275,29 @@ export default function GamePage() {
     }
   };
 
+  const handleCallToggle = async () => {
+    play("click");
+    if (audioCall.inCall) {
+      setCallOpen(true);
+      return;
+    }
+    setCallJoining(true);
+    await audioCall.joinCall();
+    setCallJoining(false);
+    setCallOpen(true);
+  };
+
+  const handleCallLeave = () => {
+    play("click");
+    audioCall.leaveCall();
+    setCallOpen(false);
+  };
+
+  const handleCallMute = () => {
+    play("click");
+    audioCall.toggleMute();
+  };
+
   if (!state) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-radial">
@@ -307,8 +338,8 @@ export default function GamePage() {
             <span className={`h-2 w-2 rounded-full ${isConnected ? "bg-emerald-400" : "bg-amber-400"}`} />
             {isConnected ? "Live" : "Reconnecting"}
           </div>
-          <Button variant="glass" size="icon" onClick={() => { toggleMute(); play("click"); }}>
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          <Button variant="glass" size="icon" onClick={() => { toggleSoundMute(); play("click"); }}>
+            {soundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </Button>
           <Button variant="glass" size="icon" onClick={() => { toggleTheme(); play("click"); }}>
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -316,6 +347,11 @@ export default function GamePage() {
           <Button variant="glass" size="icon" onClick={() => { setShowHelp(true); play("click"); }} aria-label="How to play">
             <HelpCircle className="h-4 w-4" />
           </Button>
+          <CallToggleButton
+            onClick={handleCallToggle}
+            active={audioCall.inCall}
+            callerCount={audioCall.participants.length}
+          />
           <div className="lg:hidden">
             <ChatToggleButton onClick={() => { setLastSeenCount(messages.length); setChatOpen(true); }} unreadCount={unreadChat} />
           </div>
@@ -584,6 +620,20 @@ export default function GamePage() {
         sendMessage={sendMessage}
         myPlayerId={myId}
         unreadCount={unreadChat}
+      />
+
+      {/* audio call drawer (all sizes) */}
+      <AudioCallDrawer
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        participants={audioCall.participants}
+        myPlayerId={myId}
+        muted={audioCall.muted}
+        speaking={audioCall.speaking}
+        error={audioCall.error}
+        joining={callJoining}
+        onToggleMute={handleCallMute}
+        onLeave={handleCallLeave}
       />
     </main>
   );

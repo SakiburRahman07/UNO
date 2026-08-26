@@ -167,6 +167,10 @@ export interface ServerToClientEvents {
   "player:joined": (data: { playerId: string; name: string }) => void;
   "player:left": (data: { playerId: string }) => void;
   "chat:message": (data: import("@/types/chat").ChatMessage) => void;
+  "call:state": (roster: import("@/types/call").CallParticipant[]) => void;
+  "call:offer": (data: { from: string; sdp: import("@/types/call").Sdp }) => void;
+  "call:answer": (data: { from: string; sdp: import("@/types/call").Sdp }) => void;
+  "call:ice": (data: { from: string; candidate: import("@/types/call").IceCandidatePayload }) => void;
   error: (message: string) => void;
 }
 
@@ -191,6 +195,12 @@ export interface ClientToServerEvents {
   "color:choose": (data: { color: CardColor }) => void;
   "uno:call": () => void;
   "chat:send": (data: { text: string }) => void;
+  "call:join": (ack: Ack<import("@/types/call").CallParticipant[]>) => void;
+  "call:leave": () => void;
+  "call:offer": (data: { to: string; sdp: import("@/types/call").Sdp }) => void;
+  "call:answer": (data: { to: string; sdp: import("@/types/call").Sdp }) => void;
+  "call:ice": (data: { to: string; candidate: import("@/types/call").IceCandidatePayload }) => void;
+  "call:toggle-mute": () => void;
   "game:restart": () => void;
 }
 
