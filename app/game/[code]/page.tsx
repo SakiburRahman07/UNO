@@ -502,10 +502,8 @@ export default function GamePage() {
 
       {/* my area */}
       <section className="relative mx-auto w-full max-w-6xl px-4 pb-4">
-        {/* uno button */}
-        <div className="pointer-events-none absolute inset-x-0 -top-4 z-20 flex justify-center">
-          {showUno && <UnoButton onClick={handleUno} label={unoLabel} />}
-        </div>
+        {/* uno button — floats at a random screen position via portal */}
+        {showUno && <UnoButton onClick={handleUno} label={unoLabel} />}
 
         {/* my hand */}
         <div className="overflow-x-auto scrollbar-hide pb-2 pt-16">
