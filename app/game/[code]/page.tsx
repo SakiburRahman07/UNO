@@ -596,7 +596,7 @@ export default function GamePage() {
       </div>
 
       {/* chat sidebar (desktop lg+) */}
-      <aside className="hidden w-72 shrink-0 flex-col border-l border-border-subtle p-4 lg:flex">
+      <aside className="hidden w-72 shrink-0 flex-col border-l border-border-subtle p-4 lg:flex lg:h-dvh lg:sticky lg:top-0 lg:overflow-hidden">
         <div className="mb-2 flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-fuchsia-400" />
           <span className="font-display text-sm font-semibold">Chat</span>
@@ -605,8 +605,7 @@ export default function GamePage() {
           messages={messages}
           sendMessage={sendMessage}
           myPlayerId={myId}
-          maxH="flex-1"
-          className="flex-1"
+          className="min-h-0 flex-1"
         />
       </aside>
 

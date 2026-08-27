@@ -64,13 +64,12 @@ export function ChatDrawer({
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-hide px-4">
+            <div className="min-h-0 flex-1 px-4">
               <ChatPanel
                 messages={messages}
                 sendMessage={sendMessage}
                 myPlayerId={myPlayerId}
-                maxH="flex-1"
-                className="flex-1"
+                className="min-h-0 flex-1"
               />
             </div>
           </motion.div>

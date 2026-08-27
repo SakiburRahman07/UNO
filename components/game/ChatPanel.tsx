@@ -20,13 +20,11 @@ export function ChatPanel({
   sendMessage,
   myPlayerId,
   className,
-  maxH,
 }: {
   messages: ChatMessage[];
   sendMessage: (text: string) => void;
   myPlayerId: string;
   className?: string;
-  maxH?: string;
 }) {
   const [text, setText] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -43,14 +41,11 @@ export function ChatPanel({
   };
 
   return (
-    <div className={cn("flex flex-col gap-2.5", className)}>
+    <div className={cn("flex min-h-0 flex-col gap-2.5", className)}>
       {/* messages */}
       <div
         ref={scrollRef}
-        className={cn(
-          "flex-1 space-y-2.5 overflow-y-auto scrollbar-hide rounded-2xl bg-surface-subtle p-3",
-          maxH ?? "max-h-64",
-        )}
+        className="min-h-0 flex-1 space-y-2.5 overflow-y-auto scrollbar-hide rounded-2xl bg-surface-subtle p-3"
       >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
