@@ -173,14 +173,16 @@ function playerName(state: GameState, id: string | null): string {
   return state.players.find((p) => p.id === id)?.name ?? "player";
 }
 
-/** Draw `count` cards from the deck into a player's hand. Reshuffles the discard if needed. */
+/** Draw `count` cards from the deck into a player's hand. Reshuffles the discard
+ *  if needed, and generates a fresh deck if still empty — the draw pile never
+ *  runs out, so players can always draw. */
 export function drawFromDeck(state: GameState, playerId: string, count: number): Card[] {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return [];
   const drawn: Card[] = [];
   for (let i = 0; i < count; i++) {
     if (state.deck.length === 0) reshuffleDiscardIntoDeck(state);
-    if (state.deck.length === 0) break;
+    if (state.deck.length === 0) state.deck = shuffle(createDeck());
     const card = state.deck.pop()!;
     player.hand.push(card);
     drawn.push(card);
