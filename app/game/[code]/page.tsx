@@ -313,14 +313,14 @@ export default function GamePage() {
   const isHost = me?.isHost ?? false;
 
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-x-hidden lg:flex-row">
+    <main className="relative flex h-dvh flex-col overflow-hidden lg:flex-row lg:min-h-dvh lg:overflow-x-hidden">
       <div className="fixed inset-0 -z-10 bg-radial" />
       <div className="pointer-events-none fixed inset-0 -z-10 bg-radial-glow" />
 
       {/* game content */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-dvh min-w-0 flex-1 flex-col lg:h-dvh lg:overflow-hidden">
       {/* header */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-2 lg:py-3">
         <div className="flex items-center gap-2">
           <Button variant="glass" size="icon" onClick={() => setConfirmLeave(true)} aria-label="Leave">
             <ArrowLeft className="h-4 w-4" />
@@ -359,8 +359,8 @@ export default function GamePage() {
       </header>
 
       {/* opponents */}
-      <section className="mx-auto w-full max-w-6xl px-4 pt-1">
-        <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
+      <section className="mx-auto w-full max-w-6xl px-4 pt-1 lg:pt-1">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
           {opponents.map((p) => (
             <PlayerSeat
               key={p.id}
@@ -373,9 +373,9 @@ export default function GamePage() {
       </section>
 
       {/* center table */}
-      <section className="relative flex flex-1 flex-col items-center justify-center gap-3 px-4 py-4">
+      <section className="relative flex flex-1 flex-col items-center justify-center gap-2 px-4 py-2 lg:gap-3 lg:py-4">
         {/* status */}
-        <div className="flex min-h-[2.5rem] items-center justify-center">
+        <div className="flex min-h-[1.5rem] items-center justify-center lg:min-h-[2.5rem]">
           <AnimatePresence mode="wait">
             <motion.div
               key={state.lastEventAt}
@@ -424,7 +424,7 @@ export default function GamePage() {
         </div>
 
         {/* piles */}
-        <div className="flex items-center justify-center gap-6 sm:gap-10">
+        <div className="flex items-center justify-center gap-4 sm:gap-10 lg:gap-10">
           {/* draw pile */}
           <div className="flex flex-col items-center gap-2">
             <motion.button
@@ -481,7 +481,7 @@ export default function GamePage() {
         </div>
 
         {/* penalty / status badges */}
-        <div className="flex min-h-[2.5rem] flex-wrap items-center justify-center gap-2">
+        <div className="flex min-h-[1.5rem] flex-wrap items-center justify-center gap-2 lg:min-h-[2.5rem]">
           {state.drawStack > 0 && isMyTurn && (
             <Badge variant="destructive">
               {state.topCard.value === "wild4" ? "Stack a +4" : "Stack a +2"} or draw {state.drawStack}
@@ -501,12 +501,12 @@ export default function GamePage() {
       </section>
 
       {/* my area */}
-      <section className="relative mx-auto w-full max-w-6xl px-4 pb-4">
+      <section className="relative mx-auto w-full max-w-6xl px-4 pb-2 lg:pb-4">
         {/* uno button — floats at a random screen position via portal */}
         {showUno && <UnoButton onClick={handleUno} label={unoLabel} />}
 
         {/* my hand */}
-        <div className="overflow-x-auto scrollbar-hide pb-2 pt-16">
+        <div className="overflow-x-auto scrollbar-hide pb-2 pt-2 lg:pt-4">
           <div className="mx-auto flex w-max min-w-full items-end justify-center gap-1.5 sm:gap-2">
             <AnimatePresence mode="popLayout">
               {state.myHand.map((card, i) => {
@@ -544,7 +544,7 @@ export default function GamePage() {
         </div>
 
         {/* my info bar */}
-        <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center justify-center gap-3 text-xs text-muted-foreground lg:mt-2">
           <span className="flex items-center gap-1.5">
             <Gamepad2 className="h-3.5 w-3.5 text-fuchsia-400" />
             {me?.name}

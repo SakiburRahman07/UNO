@@ -58,7 +58,7 @@ function PlayerCard({
       exit={{ opacity: 0, scale: 0.85 }}
       transition={{ duration: 0.25, delay: index * 0.04 }}
       className={cn(
-        "glass relative flex flex-col items-center gap-2 rounded-2xl p-4 text-center",
+        "glass relative flex flex-col items-center gap-1.5 rounded-2xl p-3 text-center sm:gap-2 sm:p-4",
         isMe && "ring-2 ring-fuchsia-500/60",
       )}
     >
@@ -281,13 +281,13 @@ export default function LobbyPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-5 pb-24">
+      <div className="mx-auto max-w-5xl px-5 pb-16 lg:pb-24">
         {/* room code card */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="glass-strong mx-auto mt-4 flex max-w-md flex-col items-center gap-3 rounded-3xl p-6 text-center"
+          className="glass-strong mx-auto mt-2 flex max-w-md flex-col items-center gap-2 rounded-3xl p-4 text-center sm:gap-3 sm:p-6 lg:mt-4"
         >
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Room code
@@ -348,7 +348,7 @@ export default function LobbyPage() {
         </div>
 
         {/* actions */}
-        <div className="mt-10 flex flex-col items-center gap-3">
+        <div className="mt-8 flex flex-col items-center gap-3 lg:mt-10">
           {isHost ? (
             <Button
               variant="neon"
@@ -386,7 +386,7 @@ export default function LobbyPage() {
         </div>
 
         {/* chat */}
-        <div className="mt-8">
+        <div className="mt-6 lg:mt-8">
           <h2 className="mb-2 font-display text-lg font-semibold">Chat</h2>
           <ChatPanel
             messages={messages}
