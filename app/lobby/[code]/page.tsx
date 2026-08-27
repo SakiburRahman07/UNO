@@ -74,15 +74,15 @@ function PlayerCard({
       <div className="relative">
         <div
           className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br text-lg font-bold text-white shadow-lg",
+            "flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br text-base font-bold text-white shadow-lg sm:h-14 sm:w-14 sm:text-lg",
             avatarGradient(player.id + player.name),
           )}
         >
-          {player.isBot ? <Bot className="h-6 w-6" /> : initials(player.name)}
+          {player.isBot ? <Bot className="h-5 w-5 sm:h-6 sm:w-6" /> : initials(player.name)}
         </div>
         {player.isHost && (
-          <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow ring-2 ring-background">
-            <Crown className="h-3.5 w-3.5" />
+          <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow ring-2 ring-background sm:h-6 sm:w-6">
+            <Crown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </div>
         )}
         {!player.connected && !player.isBot && (
@@ -332,7 +332,7 @@ export default function LobbyPage() {
               <button
                 onClick={handleAddBot}
                 disabled={addBotBusy}
-                className="glass flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border-subtle text-muted-foreground transition-colors hover:border-fuchsia-500/50 hover:text-fuchsia-300 disabled:opacity-50"
+                className="glass flex min-h-[6.5rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border-subtle text-muted-foreground transition-colors hover:border-fuchsia-500/50 hover:text-fuchsia-300 disabled:opacity-50 sm:min-h-[7.5rem]"
               >
                 {addBotBusy ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

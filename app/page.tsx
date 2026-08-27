@@ -226,7 +226,7 @@ export default function HomePage() {
       </header>
 
       {/* hero */}
-      <section className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-5 pb-20 pt-10 text-center sm:pt-16">
+      <section className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-5 pb-12 pt-6 text-center sm:pb-20 sm:pt-16">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -287,7 +287,7 @@ export default function HomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-12 grid w-full max-w-2xl grid-cols-3 gap-3 sm:gap-6"
+          className="mt-8 grid w-full max-w-2xl grid-cols-3 gap-3 sm:mt-12 sm:gap-6"
         >
           {[
             { icon: Users, label: "Up to 10 players" },
@@ -303,7 +303,7 @@ export default function HomePage() {
       </section>
 
       {/* features */}
-      <section className="relative z-10 mx-auto max-w-7xl px-5 pb-24">
+      <section className="relative z-10 mx-auto max-w-7xl px-5 pb-16 sm:pb-24">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: Swords, title: "Full UNO rules", desc: "Skip, reverse, draw two, wild and wild draw four — all validated server-side." },
